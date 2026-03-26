@@ -1,6 +1,6 @@
-# MARTECH Inspector
+# IDEAScan — Inspección de Material Inteligente
 
-Aplicación para extracción automática de datos logísticos usando IA.
+Aplicación para extracción automática de datos logísticos usando IA (Anthropic Claude).
 
 ---
 
@@ -9,6 +9,7 @@ Aplicación para extracción automática de datos logísticos usando IA.
 - Una cuenta en [GitHub](https://github.com) (gratis)
 - Una cuenta en [Vercel](https://vercel.com) (gratis)
 - Una API Key de Anthropic — se obtiene en [console.anthropic.com](https://console.anthropic.com)
+- Cuenta en [EmailJS](https://emailjs.com) para el envío de correos (gratis)
 
 ---
 
@@ -21,18 +22,24 @@ Aplicación para extracción automática de datos logísticos usando IA.
 ### 2. Conectar con Vercel
 1. Entra a [vercel.com](https://vercel.com) e inicia sesión con tu cuenta de GitHub
 2. Haz clic en **"Add New Project"**
-3. Selecciona el repositorio `martech-inspector`
+3. Selecciona el repositorio `scan`
 4. Vercel detecta automáticamente que es un proyecto Vite/React
 
-### 3. Configurar la API Key (MUY IMPORTANTE)
+### 3. Configurar Variables de Entorno (MUY IMPORTANTE)
+
 Antes de hacer deploy, en Vercel ve a:
-**Settings → Environment Variables** y agrega:
+**Settings → Environment Variables** y agrega las siguientes variables:
 
-| Variable | Valor |
+| Variable | Descripción |
 |---|---|
-| `VITE_ANTHROPIC_API_KEY` | `sk-ant-tu-api-key-aqui` |
+| `ANTHROPIC_API_KEY` | Tu API Key de Anthropic (sk-ant-...) — usada en el servidor |
+| `VITE_EMAILJS_SERVICE_ID` | ID del servicio en EmailJS |
+| `VITE_EMAILJS_TEMPLATE_ID` | ID del template en EmailJS |
+| `VITE_EMAILJS_PUBLIC_KEY` | Public Key de tu cuenta EmailJS |
 
-⚠️ **Nunca subas el archivo `.env` a GitHub.** El `.gitignore` ya lo excluye.
+> IMPORTANTE: La variable ANTHROPIC_API_KEY NO lleva el prefijo VITE_. Es una variable de servidor usada en /api/analyze.js y nunca debe exponerse al navegador.
+
+> Nunca subas el archivo .env a GitHub. El .gitignore ya lo excluye.
 
 ### 4. Deploy
 Haz clic en **Deploy**. En 2-3 minutos tendrás una URL pública lista para usar.
@@ -42,15 +49,17 @@ Haz clic en **Deploy**. En 2-3 minutos tendrás una URL pública lista para usar
 ## Estructura del proyecto
 
 ```
-martech-inspector/
-├── index.html          ← Página principal
-├── package.json        ← Dependencias
-├── vite.config.js      ← Configuración
-├── .env.example        ← Ejemplo de variables (no subir .env real)
-├── .gitignore
-└── src/
-    ├── main.jsx        ← Punto de entrada
-    └── App.jsx         ← Toda la lógica de la aplicación
+scan/
+├── api/
+│   └── analyze.js    <- Serverless function (proxy seguro a Anthropic)
+├── public/           <- Assets estáticos
+├── src/
+│   ├── main.jsx      <- Punto de entrada
+│   └── App.jsx       <- Toda la lógica de la aplicación
+├── index.html        <- Página principal
+├── package.json      <- Dependencias
+├── vercel.json       <- Configuración de rutas para Vercel
+└── vite.config.js    <- Configuración de Vite
 ```
 
 ---
@@ -65,4 +74,5 @@ martech-inspector/
 ---
 
 ## Soporte
+
 Cualquier duda contactar al administrador del sistema.
