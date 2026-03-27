@@ -22,24 +22,27 @@ Aplicación para extracción automática de datos logísticos usando IA (Anthrop
 ### 2. Conectar con Vercel
 1. Entra a [vercel.com](https://vercel.com) e inicia sesión con tu cuenta de GitHub
 2. Haz clic en **"Add New Project"**
-3. Selecciona el repositorio `scan`
+3. Selecciona el repositorio
 4. Vercel detecta automáticamente que es un proyecto Vite/React
 
 ### 3. Configurar Variables de Entorno (MUY IMPORTANTE)
-
 Antes de hacer deploy, en Vercel ve a:
 **Settings → Environment Variables** y agrega las siguientes variables:
 
-| Variable | Descripción |
-|---|---|
-| `ANTHROPIC_API_KEY` | Tu API Key de Anthropic (sk-ant-...) — usada en el servidor |
-| `VITE_EMAILJS_SERVICE_ID` | ID del servicio en EmailJS |
-| `VITE_EMAILJS_TEMPLATE_ID` | ID del template en EmailJS |
-| `VITE_EMAILJS_PUBLIC_KEY` | Public Key de tu cuenta EmailJS |
+| Variable | Descripción | Requerida |
+|---|---|---|
+| `ANTHROPIC_API_KEY` | Tu API Key de Anthropic (`sk-ant-...`). **Sin prefijo VITE_** — es variable de servidor | ✅ |
+| `APP_PASSWORD` | Contraseña de acceso a la app. Si no se configura, la app es pública | ⚠️ |
+| `VITE_EMAILJS_SERVICE_ID` | ID del servicio en EmailJS | ✅ |
+| `VITE_EMAILJS_TEMPLATE_ID` | ID del template en EmailJS | ✅ |
+| `VITE_EMAILJS_PUBLIC_KEY` | Public Key de tu cuenta EmailJS | ✅ |
+| `VITE_FIXED_EMAIL` | Correo destino fijo para envíos. Default: `juan.jasso@groupcca.com` | Opcional |
+| `VITE_REQUIRE_AUTH` | Si está definida (cualquier valor), activa la pantalla de login | Opcional |
+| `ALLOWED_ORIGIN` | Origen permitido para CORS en el serverless. Default: `*` | Opcional |
 
-> IMPORTANTE: La variable ANTHROPIC_API_KEY NO lleva el prefijo VITE_. Es una variable de servidor usada en /api/analyze.js y nunca debe exponerse al navegador.
-
-> Nunca subas el archivo .env a GitHub. El .gitignore ya lo excluye.
+> ⚠️ `ANTHROPIC_API_KEY` **NO lleva el prefijo `VITE_`** — la usa el servidor, no el navegador.
+> ⚠️ Para activar la autenticación debes configurar **ambas**: `APP_PASSWORD` y `VITE_REQUIRE_AUTH`.
+> ⚠️ Nunca subas el archivo `.env` a GitHub. El `.gitignore` ya lo excluye.
 
 ### 4. Deploy
 Haz clic en **Deploy**. En 2-3 minutos tendrás una URL pública lista para usar.
@@ -51,15 +54,32 @@ Haz clic en **Deploy**. En 2-3 minutos tendrás una URL pública lista para usar
 ```
 scan/
 ├── api/
-│   └── analyze.js    <- Serverless function (proxy seguro a Anthropic)
-├── public/           <- Assets estáticos
+│   └── analyze.js              ← Serverless function (proxy seguro a Anthropic)
+├── public/
+│   └── logo.png                ← Logo de la aplicación
 ├── src/
-│   ├── main.jsx      <- Punto de entrada
-│   └── App.jsx       <- Toda la lógica de la aplicación
-├── index.html        <- Página principal
-├── package.json      <- Dependencias
-├── vercel.json       <- Configuración de rutas para Vercel
-└── vite.config.js    <- Configuración de Vite
+│   ├── config/
+│   │   ├── constants.js        ← Colores, columnas CSV, variables globales
+│   │   └── prompts.js          ← Prompts de IA para Fase 2 y Fase 3
+│   ├── utils/
+│   │   └── claudeApi.js        ← callClaude, buildRows, buildCSV, helpers
+│   ├── components/
+│   │   ├── phases/
+│   │   │   ├── Phase1.jsx      ← Selección de tipo de material
+│   │   │   ├── Phase2.jsx      ← Carga de documentos (Packing List)
+│   │   │   ├── Phase3.jsx      ← Verificación por bulto
+│   │   │   └── Phase4.jsx      ← Resultado, descarga CSV y correo
+│   │   ├── Header.jsx
+│   │   ├── LoginScreen.jsx
+│   │   ├── ResultTable.jsx
+│   │   ├── StepBar.jsx
+│   │   └── UI.jsx              ← Card, PrimaryBtn, GhostBtn, DropZone, Thumbs, InfoBadge
+│   ├── App.jsx                 ← Orquestador principal (<200 líneas)
+│   └── main.jsx
+├── index.html
+├── package.json
+├── vercel.json
+└── vite.config.js
 ```
 
 ---
@@ -74,5 +94,4 @@ scan/
 ---
 
 ## Soporte
-
 Cualquier duda contactar al administrador del sistema.
