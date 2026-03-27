@@ -18,6 +18,43 @@ export const toUrl = (f) =>
     r.readAsDataURL(f);
   });
 
+/** Normaliza el nombre del transportista: solo la marca principal */
+function normalizeCarrier(v) {
+  if (!v) return v;
+  const u = v.toUpperCase();
+  if (u.includes("UPS"))                          return "UPS";
+  if (u.includes("FEDEX") || u.includes("FED EX")) return "FEDEX";
+  if (u.includes("DHL"))                           return "DHL";
+  if (u.includes("XPO"))                           return "XPO";
+  return v;
+}
+
+/** Normaliza el tipo de bulto a su abreviatura */
+function normalizeTipoBulto(v) {
+  if (!v) return v;
+  const u = v.toUpperCase().trim();
+  if (u === "BX" || u.includes("BOX")    || u.includes("CAJA"))   return "BX";
+  if (u === "TA" || u.includes("TARIMA") || u.includes("PALLET"))  return "TA";
+  if (u === "BU" || u.includes("BULTO")  || u.includes("BUNDLE"))  return "BU";
+  if (u === "TU" || u.includes("TUBO")   || u.includes("TUBE"))    return "TU";
+  return v;
+}
+
+/** Normaliza el origen al código ISO-2 del país */
+function normalizeOrigen(v) {
+  if (!v) return v;
+  if (v.trim().length === 2) return v.trim().toUpperCase();
+  const u = v.toUpperCase().trim();
+  const map = {
+    "MEXICO":"MX","MÉXICO":"MX","ESTADOS UNIDOS":"US","USA":"US","EE.UU.":"US",
+    "CHINA":"CN","CANADA":"CA","CANADÁ":"CA","ALEMANIA":"DE","GERMANY":"DE",
+    "JAPAN":"JP","JAPON":"JP","JAPÓN":"JP","KOREA":"KR","COREA":"KR","COREA DEL SUR":"KR",
+    "FRANCE":"FR","FRANCIA":"FR","ITALY":"IT","ITALIA":"IT","BRAZIL":"BR","BRASIL":"BR",
+    "INDIA":"IN","TAIWAN":"TW","UK":"GB","REINO UNIDO":"GB","SPAIN":"ES","ESPAÑA":"ES",
+  };
+  return map[u] || v;
+}
+
 /**
  * Llama al proxy serverless /api/analyze que a su vez llama a Anthropic.
  * Requiere que el usuario haya guardado su contraseña en sessionStorage["app_pwd"].
@@ -67,31 +104,35 @@ export async function callClaude(system, images, text) {
 
 /** Construye el array de filas de la tabla a partir de la extracción de la IA */
 export function buildRows(ext, tipo) {
+  const esMaq = tipo === "maquinaria";
   const base = {
     entry_no: null, no_inspeccion: null,
     fecha: new Date().toLocaleDateString("es-MX"),
     importador: ext.importador, proveedor: ext.vendor,
-    transportista: ext.carrier, trailer: null, referencia: null, po: ext.po,
+    transportista: normalizeCarrier(ext.carrier),
+    trailer: null, referencia: null, po: ext.po,
     peso_lbs: ext.peso_lbs, peso_kgs: ext.peso_kgs,
-    tipo_bulto: ext.tipo_bulto, valor: null, origen: ext.origen,
+    tipo_bulto: normalizeTipoBulto(ext.tipo_bulto), valor: null,
+    origen: normalizeOrigen(ext.origen),
     fraccion: null, locacion: null, tracking: ext.tracking,
     marca: null, modelo: null, serie: null, observaciones: null,
   };
 
-  let rows = ext.partes.map((p) => ({
+  let rows = ext.partes.map((p, i) => ({
     ...base,
     no_parte: p.no_parte, descripcion: p.descripcion,
     descripcion_ingles: p.descripcion_ingles,
     cantidad: p.cantidad, um: p.um, valor: p.valor, fraccion: p.fraccion,
-    bultos: ext.bultos_total,
-    marca:  tipo === "maquinaria" ? p.marca  : null,
-    modelo: tipo === "maquinaria" ? p.modelo : null,
-    serie:  tipo === "maquinaria" ? p.serie  : null,
+    // Maquinaria: solo 1ª fila tiene el número de bulto, el resto vacío
+    bultos: esMaq ? (i === 0 ? 1 : null) : ext.bultos_total,
+    marca:  esMaq ? p.marca  : null,
+    modelo: esMaq ? p.modelo : null,
+    serie:  esMaq ? p.serie  : null,
     _warnings: [], _tipo: tipo,
   }));
 
-  // Si solo hay 1 parte pero múltiples bultos, expandir por bulto
-  if (rows.length === 1 && ext.bultos_total > 1) {
+  // Materia prima: si 1 parte y múltiples bultos, expandir por bulto
+  if (!esMaq && rows.length === 1 && ext.bultos_total > 1) {
     const o   = rows[0];
     const cpb = o.cantidad ? Math.floor(o.cantidad / ext.bultos_total) : null;
     rows = Array.from({ length: ext.bultos_total }, (_, i) => ({

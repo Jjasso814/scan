@@ -140,6 +140,7 @@ export default function App() {
             onRemoveFile={(i) => removeFile(i, setP2imgs, setP2prevs)}
             onAnalyze={runPhase2}
             onSkip={() => { setRows([]); setPhase(4); }}
+            onBack={() => { setTipo(null); setP2imgs([]); setP2prevs([]); setPhase(1); }}
           />
         )}
 
