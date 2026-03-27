@@ -3,7 +3,7 @@ import emailjs from "@emailjs/browser";
 
 const LOGO = "/logo.png";
 const FIXED_EMAIL = import.meta.env.VITE_FIXED_EMAIL || "juan.jasso@groupcca.com";
-const MODEL = "claude-3-5-sonnet-20241022";
+const MODEL = "claude-3-5-sonnet-20240620";
 const C = { navy:"#0d2b5e", orange:"#f47920", white:"#ffffff", lightBg:"#f4f7fc", border:"#dce6f5", text:"#1a2a4a", muted:"#6b7fa3", red:"#dc2626", green:"#16a34a" };
 const COLUMNS = ["Entry No","No. Inspección","Fecha","Importador","Proveedor","Transportista","Trailer","Referencia","Po","No. Parte","Descripción","Descripción Ingles","Cantidad","U.M.","Peso Lbs","Peso Kgs","Bultos","Tipo Bulto","Valor","Origen","Fracción","Locación","Tracking","Marca","Modelo","Serie","Observaciones"];
 const COL_KEYS = ["entry_no","no_inspeccion","fecha","importador","proveedor","transportista","trailer","referencia","po","no_parte","descripcion","descripcion_ingles","cantidad","um","peso_lbs","peso_kgs","bultos","tipo_bulto","valor","origen","fraccion","locacion","tracking","marca","modelo","serie","observaciones"];
