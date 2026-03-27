@@ -104,10 +104,21 @@ export default function App() {
   const handleEmail = async () => {
     setLoading(true); setLoadMsg("Enviando correo...");
     try {
+      const csv = buildCSV(rows);
+      const fecha = new Date().toLocaleDateString("es-MX");
+      const html_body = `<div style="font-family:Arial,sans-serif;color:#1a2a4a;max-width:600px">
+<div style="background:#0d2b5e;padding:14px 20px;border-radius:8px 8px 0 0">
+<h2 style="color:#fff;margin:0;font-size:18px">IDEAScan — Resultado de Inspección</h2></div>
+<div style="background:#f4f7fc;padding:20px;border:1px solid #dce6f5;border-radius:0 0 8px 8px">
+<p>Fecha: <strong>${fecha}</strong> &nbsp;|&nbsp; Líneas: <strong>${rows.length}</strong> &nbsp;|&nbsp; Imágenes: <strong>${allImgs.length}</strong></p>
+<p style="font-weight:bold;margin-bottom:6px">Datos CSV:</p>
+<pre style="background:#fff;border:1px solid #dce6f5;border-radius:6px;padding:12px;font-size:11px;white-space:pre-wrap;word-break:break-all">${csv}</pre>
+<p style="font-size:11px;color:#6b7fa3;margin-top:12px">Generado por IDEAScan · Group CCA</p>
+</div></div>`;
       await emailjs.send(
         import.meta.env.VITE_EMAILJS_SERVICE_ID,
         import.meta.env.VITE_EMAILJS_TEMPLATE_ID,
-        { to_email: FIXED_EMAIL, subject: "IDEAScan — Inspección " + new Date().toLocaleDateString("es-MX"), csv_data: buildCSV(rows), lines_count: rows.length, images_count: allImgs.length },
+        { to_email: FIXED_EMAIL, subject: "IDEAScan — Inspección " + fecha, html_body },
         import.meta.env.VITE_EMAILJS_PUBLIC_KEY
       );
       setEmailMsg("✅ Correo enviado a " + FIXED_EMAIL);
