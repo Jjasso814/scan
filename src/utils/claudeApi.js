@@ -18,41 +18,63 @@ export const toUrl = (f) =>
     r.readAsDataURL(f);
   });
 
+/** Quita el prefijo de advertencia "⚠️ " que la IA puede agregar */
+function stripWarn(v) {
+  if (!v) return v;
+  return String(v).replace(/^⚠️\s*/, "").trim();
+}
+
 /** Normaliza el nombre del transportista: solo la marca principal */
 function normalizeCarrier(v) {
   if (!v) return v;
-  const u = v.toUpperCase();
-  if (u.includes("UPS"))                          return "UPS";
+  const u = stripWarn(v).toUpperCase();
+  if (u.includes("UPS"))                           return "UPS";
   if (u.includes("FEDEX") || u.includes("FED EX")) return "FEDEX";
-  if (u.includes("DHL"))                           return "DHL";
-  if (u.includes("XPO"))                           return "XPO";
-  return v;
+  if (u.includes("DHL"))                            return "DHL";
+  if (u.includes("XPO"))                            return "XPO";
+  return stripWarn(v);
 }
 
 /** Normaliza el tipo de bulto a su abreviatura */
 function normalizeTipoBulto(v) {
   if (!v) return v;
-  const u = v.toUpperCase().trim();
+  const u = stripWarn(v).toUpperCase().trim();
   if (u === "BX" || u.includes("BOX")    || u.includes("CAJA"))   return "BX";
   if (u === "TA" || u.includes("TARIMA") || u.includes("PALLET"))  return "TA";
   if (u === "BU" || u.includes("BULTO")  || u.includes("BUNDLE"))  return "BU";
   if (u === "TU" || u.includes("TUBO")   || u.includes("TUBE"))    return "TU";
-  return v;
+  return stripWarn(v);
 }
+
+const US_STATES = new Set([
+  "AL","AK","AZ","AR","CA","CO","CT","DE","FL","GA","HI","ID","IL","IN","IA",
+  "KS","KY","LA","ME","MD","MA","MI","MN","MS","MO","MT","NE","NV","NH","NJ",
+  "NM","NY","NC","ND","OH","OK","OR","PA","RI","SC","SD","TN","TX","UT","VT",
+  "VA","WA","WV","WI","WY","DC",
+]);
 
 /** Normaliza el origen al código ISO-2 del país */
 function normalizeOrigen(v) {
   if (!v) return v;
-  if (v.trim().length === 2) return v.trim().toUpperCase();
-  const u = v.toUpperCase().trim();
+  const clean = stripWarn(v).trim();
+  if (clean.length === 2) return clean.toUpperCase();
+  const u = clean.toUpperCase();
+  // Detectar dirección americana: ", CA 90670" o "SANTA FE SPRINGS, CA"
+  const usAddrMatch = u.match(/,\s*([A-Z]{2})(?:\s+\d{5})?(?:\s*$|-)/);
+  if (usAddrMatch && US_STATES.has(usAddrMatch[1])) return "US";
+  // Detectar "COO: US" o "MADE IN US"
+  const cooMatch = u.match(/(?:COO|MADE IN)[:\s]+([A-Z]{2})/);
+  if (cooMatch) return cooMatch[1];
   const map = {
     "MEXICO":"MX","MÉXICO":"MX","ESTADOS UNIDOS":"US","USA":"US","EE.UU.":"US",
-    "CHINA":"CN","CANADA":"CA","CANADÁ":"CA","ALEMANIA":"DE","GERMANY":"DE",
-    "JAPAN":"JP","JAPON":"JP","JAPÓN":"JP","KOREA":"KR","COREA":"KR","COREA DEL SUR":"KR",
-    "FRANCE":"FR","FRANCIA":"FR","ITALY":"IT","ITALIA":"IT","BRAZIL":"BR","BRASIL":"BR",
-    "INDIA":"IN","TAIWAN":"TW","UK":"GB","REINO UNIDO":"GB","SPAIN":"ES","ESPAÑA":"ES",
+    "UNITED STATES":"US","U.S.A.":"US","CHINA":"CN","CANADA":"CA","CANADÁ":"CA",
+    "ALEMANIA":"DE","GERMANY":"DE","JAPAN":"JP","JAPON":"JP","JAPÓN":"JP",
+    "KOREA":"KR","COREA":"KR","COREA DEL SUR":"KR","SOUTH KOREA":"KR",
+    "FRANCE":"FR","FRANCIA":"FR","ITALY":"IT","ITALIA":"IT",
+    "BRAZIL":"BR","BRASIL":"BR","INDIA":"IN","TAIWAN":"TW",
+    "UK":"GB","REINO UNIDO":"GB","GREAT BRITAIN":"GB","SPAIN":"ES","ESPAÑA":"ES",
   };
-  return map[u] || v;
+  return map[u] || clean;
 }
 
 /**
@@ -120,14 +142,15 @@ export function buildRows(ext, tipo) {
 
   let rows = ext.partes.map((p, i) => ({
     ...base,
-    no_parte: p.no_parte, descripcion: p.descripcion,
-    descripcion_ingles: p.descripcion_ingles,
+    no_parte: stripWarn(p.no_parte),
+    descripcion: stripWarn(p.descripcion),
+    descripcion_ingles: stripWarn(p.descripcion_ingles),
     cantidad: p.cantidad, um: p.um, valor: p.valor, fraccion: p.fraccion,
     // Maquinaria: solo 1ª fila tiene el número de bulto, el resto vacío
     bultos: esMaq ? (i === 0 ? 1 : null) : ext.bultos_total,
-    marca:  esMaq ? p.marca  : null,
-    modelo: esMaq ? p.modelo : null,
-    serie:  esMaq ? p.serie  : null,
+    marca:  esMaq ? stripWarn(p.marca)  : null,
+    modelo: esMaq ? stripWarn(p.modelo) : null,
+    serie:  esMaq ? stripWarn(p.serie)  : null,
     _warnings: [], _tipo: tipo,
   }));
 

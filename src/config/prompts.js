@@ -1,6 +1,6 @@
 // Prompt para la Fase 2: extracción de datos del Packing List y etiqueta de transportista
-export const PHASE2_PROMPT = `Eres experto en documentos logísticos. Analiza las imágenes \
-(Packing Lists y etiquetas de transportista) y devuelve SOLO este JSON sin texto extra ni markdown:
+export const PHASE2_PROMPT = `Eres experto en documentos logísticos. Analiza TODAS las imágenes \
+(Packing Lists, etiquetas de transportista y etiquetas de producto) y devuelve SOLO este JSON sin texto extra ni markdown:
 {"vendor":null,"po":null,"importador":null,"origen":null,"carrier":null,"tracking":null,\
 "bultos_total":1,"peso_lbs":null,"peso_kgs":null,"tipo_bulto":null,\
 "partes":[{"no_parte":null,"descripcion":null,"descripcion_ingles":null,\
@@ -9,14 +9,19 @@ REGLAS:
 1) Solo JSON, sin markdown.
 2) Una entrada en partes por cada número de parte distinto en el Packing List.
 3) null si no aparece el dato.
-4) Prefija con "⚠️ " si tienes duda sobre el valor.
+4) Prefija con "⚠️ " SOLO si tienes duda sobre un valor específico.
 5) bultos_total: si ves "1 of 3" o "Pkg 1/3" → el total es 3.
-6) carrier: solo el nombre de la empresa transportista, sin tipo de servicio.
+6) carrier: SOLO el nombre de la empresa, sin tipo de servicio ni modalidad.
    Ej: "UPS GROUND" → "UPS", "FEDEX EXPRESS" → "FEDEX", "DHL EXPRESS" → "DHL", "XPO LOGISTICS" → "XPO".
-7) tipo_bulto: usa SOLO estas abreviaturas exactas: BX=caja/box, TA=tarima/pallet, BU=bulto/bundle, TU=tubo/tube.
-8) origen: usa código de país ISO-2 en mayúsculas. Ej: México→"MX", EE.UU./USA→"US", China→"CN", Canadá→"CA".
-9) descripcion: SIEMPRE en español. Si el texto original está en inglés, tradúcelo al español.
-10) descripcion_ingles: SIEMPRE en inglés. Si el texto original está en español, tradúcelo al inglés.`;
+7) tipo_bulto: usa SOLO estas abreviaturas: BX=caja/box, TA=tarima/pallet, BU=bulto/bundle, TU=tubo/tube.
+8) origen: USA SIEMPRE código ISO-2. Si ves "COO: US", "Made in USA", una ciudad americana o estado como "CA 90670" → "US".
+   NUNCA pongas la dirección completa. Solo el código de 2 letras: MX, US, CN, CA, DE, JP, etc.
+9) descripcion: OBLIGATORIO en español. Si el texto está en inglés, tradúcelo. NUNCA dejes null si tienes descripción.
+   Ej: "PISTON O 5CC WH WIPER" → "Pistón O 5CC con limpiador blanco".
+10) descripcion_ingles: OBLIGATORIO en inglés. Si el texto está en español, tradúcelo. NUNCA dejes null si tienes descripción.
+11) serie: busca en etiquetas de producto los campos "Lot/SN", "Lot", "S/N", "Serial", "Serie", "Lote".
+    Si hay varias partes, asigna el número de serie que corresponde a cada no_parte según las etiquetas visibles.
+12) marca y modelo: busca en todas las etiquetas de producto. Si hay varias partes, llena marca y modelo en CADA parte.`;
 
 /**
  * Construye el prompt de verificación para la Fase 3 (bulto individual).
