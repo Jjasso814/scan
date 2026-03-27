@@ -14,21 +14,39 @@ const toB64 = f => new Promise((res,rej)=>{const r=new FileReader();r.onload=()=
 const toUrl = f => new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(f);});
 
 async function callClaude(system, images, text) {
-  const imgs = await Promise.all(images.map(async f=>({type:"image",source:{type:"base64",media_type:f.type||"image/jpeg",data:await toB64(f)}})));
+  const imgs = await Promise.all(images.map(async f=>({type:"image",source:{type:"base64",media_type:f.type,data:await toB64(f)}})));
+  const pwd = sessionStorage.getItem("app_pwd") || "";
+  const authHeader = pwd ? "Basic " + btoa("user:" + pwd) : "";
   const res = await fetch("/api/analyze", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      ...(authHeader ? { "Authorization": authHeader } : {}),
+    },
     body: JSON.stringify({ system, images: imgs, text })
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
+    if (res.status === 401) sessionStorage.removeItem("app_pwd");
     throw new Error(err.error || "Error del servidor: " + res.status);
   }
   const d = await res.json();
   const raw = d.content?.find(b=>b.type==="text")?.text||"";
-  return JSON.parse(raw.replace(/```json|```/g,"").trim());
+  const cleaned = raw.replace(/```json|```/g,"").trim();
+  let parsed;
+  try {
+    parsed = JSON.parse(cleaned);
+  } catch(_) {
+    const m = cleaned.match(/{[\s\S]*}/);
+    if (m) {
+      try { parsed = JSON.parse(m[0]); }
+      catch(e2) { throw new Error("Formato JSON inválido en respuesta de IA.\nDetalle: "+e2.message+"\nRespuesta: "+cleaned.substring(0,200)); }
+    } else {
+      throw new Error("La IA no devolvió JSON. Asegúrate de que las imágenes sean legibles.\nRespuesta: "+cleaned.substring(0,200));
+    }
+  }
+  return parsed;
 }
-
 function buildRows(ext, tipo) {
   const base={entry_no:null,no_inspeccion:null,fecha:new Date().toLocaleDateString("es-MX"),importador:ext.importador,proveedor:ext.vendor,transportista:ext.carrier,trailer:null,referencia:null,po:ext.po,peso_lbs:ext.peso_lbs,peso_kgs:ext.peso_kgs,tipo_bulto:ext.tipo_bulto,valor:null,origen:ext.origen,fraccion:null,locacion:null,tracking:ext.tracking,marca:null,modelo:null,serie:null,observaciones:null};
   let rows=ext.partes.map(p=>({...base,no_parte:p.no_parte,descripcion:p.descripcion,descripcion_ingles:p.descripcion_ingles,cantidad:p.cantidad,um:p.um,valor:p.valor,fraccion:p.fraccion,bultos:ext.bultos_total,marca:tipo==="maquinaria"?p.marca:null,modelo:tipo==="maquinaria"?p.modelo:null,serie:tipo==="maquinaria"?p.serie:null,_warnings:[],_tipo:tipo}));
@@ -173,6 +191,13 @@ export default function App() {
   const addFiles=useCallback(async(files,setI,setP)=>{setI(p=>[...p,...files]);const urls=await Promise.all(files.map(toUrl));setP(p=>[...p,...urls]);setAllImgs(p=>[...p,...files]);},[]);
   const removeFile=(i,setI,setP)=>{setI(p=>p.filter((_,j)=>j!==i));setP(p=>p.filter((_,j)=>j!==i));};
 
+
+  // ── Autenticación ──────────────────────────────────────────────────
+  const [authenticated, setAuthenticated] = useState(() => !!sessionStorage.getItem("app_pwd") || !import.meta.env.VITE_REQUIRE_AUTH);
+  const [pwdInput, setPwdInput] = useState("");
+  const [pwdError, setPwdError] = useState("");
+  // ── Reconciliación de cantidades ──────────────────────────────────
+  const [reconciliation, setReconciliation] = useState(null);
   const runPhase2=async()=>{
     if(!p2imgs.length)return;
     setLoading(true);setLoadMsg("Analizando Packing List y etiqueta del transportista...");
@@ -206,7 +231,22 @@ export default function App() {
       if(cantTotal){const suma=newRows.reduce((s,r)=>s+(Number(r.cantidad)||0),0);if(suma===cantTotal)newRows.forEach(r=>r._warnings=r._warnings?.filter(w=>w!=="cantidad"));}
       setRows(newRows);
       setP3imgs([]);setP3prevs([]);
-      if(bultoIdx<rows.length-1){setBultoIdx(i=>i+1);}else{setPhase(4);}
+      if(bultoIdx<rows.length-1){setBultoIdx(i=>i+1);
+      // ── Reconciliación de cantidades ─────────────────────────────────
+      const finalRows = newRows;
+      if (extracted?.partes?.length > 0) {
+        const totalPacking = extracted.partes.reduce((acc, p) => acc + (Number(p.cantidad) || 0), 0);
+        const totalFisico  = finalRows.reduce((acc, r) => acc + (Number(r.cantidad) || 0), 0);
+        const diff = totalFisico - totalPacking;
+        if (diff !== 0) {
+          finalRows.forEach(r => {
+            if (!r._warnings) r._warnings = [];
+            if (!r._warnings.includes("reconciliacion")) r._warnings.push("reconciliacion");
+          });
+        }
+        setReconciliation({ totalPacking, totalFisico, diff });
+      }
+      }else{setPhase(4);}
     }catch(e){alert("Error al analizar bulto: "+e.message);}
     finally{setLoading(false);}
   };
@@ -248,7 +288,70 @@ export default function App() {
     }finally{setLoading(false);}
   };
 
-  const reset=()=>{setPhase(1);setTipo(null);setRows([]);setP2imgs([]);setP2prevs([]);setP3imgs([]);setP3prevs([]);setAllImgs([]);setBultoIdx(0);setEmailMsg("");setExtracted(null);};
+
+  // ── Pantalla de Login ────────────────────────────────────────────────
+  if (!authenticated) {
+    const handleLogin = (e) => {
+      e.preventDefault();
+      if (!pwdInput.trim()) { setPwdError("Ingresa la contraseña"); return; }
+      sessionStorage.setItem("app_pwd", pwdInput.trim());
+      // Verify password against server
+      fetch("/api/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": "Basic " + btoa("user:" + pwdInput.trim()) },
+        body: JSON.stringify({ system: "test", images: [], text: "test" })
+      }).then(r => {
+        if (r.status === 401) {
+          sessionStorage.removeItem("app_pwd");
+          setPwdError("Contraseña incorrecta");
+        } else if (r.status === 400) {
+          // 400 = bad request body but auth passed
+          setAuthenticated(true);
+          setPwdError("");
+        } else {
+          setAuthenticated(true);
+          setPwdError("");
+        }
+      }).catch(() => {
+        // Network error - allow login anyway
+        setAuthenticated(true);
+      });
+    };
+    return (
+      <div style={{minHeight:"100vh",background:C.lightBg,fontFamily:"'Segoe UI',system-ui,sans-serif",display:"flex",flexDirection:"column"}}>
+        <Header />
+        <div style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",padding:"24px 16px"}}>
+          <div style={{background:C.white,borderRadius:16,boxShadow:"0 4px 24px rgba(13,43,94,0.12)",padding:"32px 28px",maxWidth:380,width:"100%"}}>
+            <div style={{textAlign:"center",marginBottom:24}}>
+              <img src={LOGO} style={{width:56,height:56,borderRadius:12,marginBottom:12}} alt="IDEAScan" />
+              <h2 style={{color:C.navy,fontWeight:700,fontSize:18,margin:"0 0 4px"}}>IDEAScan</h2>
+              <p style={{color:C.muted,fontSize:13,margin:0}}>Ingresa la contraseña para continuar</p>
+            </div>
+            <form onSubmit={handleLogin}>
+              <div style={{marginBottom:16}}>
+                <label style={{display:"block",color:C.text,fontWeight:600,fontSize:13,marginBottom:6}}>Contraseña de acceso</label>
+                <input
+                  type="password"
+                  value={pwdInput}
+                  onChange={e=>setPwdInput(e.target.value)}
+                  autoFocus
+                  placeholder="••••••••"
+                  style={{width:"100%",padding:"10px 14px",border:`1px solid ${pwdError?C.red:C.border}`,borderRadius:8,fontSize:14,outline:"none",boxSizing:"border-box",fontFamily:"inherit"}}
+                />
+                {pwdError && <p style={{color:C.red,fontSize:12,margin:"6px 0 0",fontWeight:600}}>{pwdError}</p>}
+              </div>
+              <button type="submit" style={{width:"100%",background:C.navy,color:C.white,border:"none",borderRadius:8,padding:"11px",fontSize:14,fontWeight:700,cursor:"pointer"}}>
+                Ingresar
+              </button>
+            </form>
+            <p style={{color:C.muted,fontSize:11,textAlign:"center",marginTop:16,marginBottom:0}}>
+              Configura APP_PASSWORD en Vercel → Settings → Environment Variables
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={{minHeight:"100vh",background:C.lightBg,fontFamily:"'Segoe UI',system-ui,sans-serif"}}>
@@ -350,7 +453,42 @@ export default function App() {
                   <p style={{margin:0,fontSize:13,color:C.red,fontWeight:600}}>⚠️ Hay campos en rojo que requieren verificación manual. Puedes editarlos directamente en la tabla.</p>
                 </div>
               )}
-            </Card>
+
+
+            {reconciliation && (
+              <Card style={{background: reconciliation.diff===0 ? "#f0fdf4" : "#fff8f0", border: `1px solid ${reconciliation.diff===0 ? "#86efac" : C.orange}`}}>
+                <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:8}}>
+                  <span style={{fontSize:18}}>{reconciliation.diff===0 ? "✅" : "⚠️"}</span>
+                  <h3 style={{margin:0,fontSize:14,fontWeight:700,color:reconciliation.diff===0?"#166534":C.navy}}>
+                    Reconciliación de Cantidades
+                  </h3>
+                </div>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,fontSize:13}}>
+                  <div style={{background:"rgba(255,255,255,0.7)",borderRadius:8,padding:"8px 12px",textAlign:"center"}}>
+                    <div style={{color:C.muted,fontSize:11,marginBottom:2}}>Packing List</div>
+                    <div style={{fontWeight:700,color:C.navy,fontSize:16}}>{reconciliation.totalPacking}</div>
+                    <div style={{color:C.muted,fontSize:11}}>unidades</div>
+                  </div>
+                  <div style={{background:"rgba(255,255,255,0.7)",borderRadius:8,padding:"8px 12px",textAlign:"center"}}>
+                    <div style={{color:C.muted,fontSize:11,marginBottom:2}}>Físico Recibido</div>
+                    <div style={{fontWeight:700,color:C.navy,fontSize:16}}>{reconciliation.totalFisico}</div>
+                    <div style={{color:C.muted,fontSize:11}}>unidades</div>
+                  </div>
+                  <div style={{background:"rgba(255,255,255,0.7)",borderRadius:8,padding:"8px 12px",textAlign:"center"}}>
+                    <div style={{color:C.muted,fontSize:11,marginBottom:2}}>Diferencia</div>
+                    <div style={{fontWeight:700,fontSize:16,color:reconciliation.diff===0?"#166534":reconciliation.diff>0?"#166534":"#dc2626"}}>
+                      {reconciliation.diff>0?"+":""}{reconciliation.diff}
+                    </div>
+                    <div style={{color:C.muted,fontSize:11}}>{reconciliation.diff===0?"✓ Correcto":reconciliation.diff>0?"Sobrante":"Faltante"}</div>
+                  </div>
+                </div>
+                {reconciliation.diff!==0 && (
+                  <p style={{margin:"10px 0 0",fontSize:12,color:"#92400e",background:"#fef3c7",borderRadius:6,padding:"8px 10px"}}>
+                    ⚠️ Discrepancia detectada: se recibieron <strong>{Math.abs(reconciliation.diff)} unidades {reconciliation.diff>0?"más":"menos"}</strong> que lo indicado en el Packing List. Documentar para disputa con transportista/proveedor.
+                  </p>
+                )}
+              </Card>
+            )}            </Card>
             <Card style={{padding:0,overflow:"hidden"}}>
               <div style={{padding:"12px 16px",borderBottom:`1px solid ${C.border}`}}>
                 <p style={{margin:0,fontSize:13,color:C.navy,fontWeight:600}}>Campos en <span style={{color:C.red}}>rojo</span> = verificar · Puedes editar cualquier celda</p>
