@@ -7,7 +7,7 @@ export default function Phase3({ rows, setRows, tipo, bultoIdx, extracted, p3img
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       <Card>
         <h2 style={{ color: C.navy, fontSize: 16, fontWeight: 700, margin: "0 0 4px" }}>Paso 3 — Verificar bultos</h2>
-        <p style={{ color: C.muted, fontSize: 12, margin: "0 0 14px" }}>{rows.length} parte(s) detectada(s) en el Packing List</p>
+        <p style={{ color: C.muted, fontSize: 12, margin: "0 0 14px" }}>Bulto {bultoIdx + 1} de {rows.length}</p>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 14 }}>
           {extracted && (
             <>
@@ -18,21 +18,20 @@ export default function Phase3({ rows, setRows, tipo, bultoIdx, extracted, p3img
         </div>
         <div style={{ background: "#fff7f0", border: "1px solid #fde8d0", borderRadius: 10, padding: "10px 14px", marginBottom: 14 }}>
           <p style={{ margin: 0, fontSize: 13, color: "#92400e" }}>
-            📦 Sube <strong>una foto por bulto</strong> — si tienes {rows.length} bultos, sube {rows.length} fotos.
-            La IA verificará cada una por separado e identificará el número de parte y la cantidad.
+            📦 Toma fotos del <strong>bulto {bultoIdx + 1}</strong>. La IA identificará el número de parte y verificará la cantidad.
           </p>
         </div>
         <DropZone
           onFiles={onAddFiles}
-          label={`Fotos de los bultos (${p3imgs.length} cargada${p3imgs.length !== 1 ? "s" : ""})`}
-          sublabel="Una foto por bulto — etiquetas, código de barras, contenido visible"
+          label={"Fotos del bulto " + (bultoIdx + 1)}
+          sublabel="Etiquetas, código de barras, contenido visible"
         />
         <Thumbs previews={p3prevs} onRemove={onRemoveFile} />
         <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 8 }}>
           <PrimaryBtn onClick={onVerify} disabled={!p3imgs.length}>
-            ✅ Verificar {p3imgs.length > 0 ? p3imgs.length : ""} bulto{p3imgs.length !== 1 ? "s" : ""}
+            ✅ Verificar bulto {bultoIdx + 1}
           </PrimaryBtn>
-          <GhostBtn onClick={onSkip}>Saltar verificación</GhostBtn>
+          <GhostBtn onClick={onSkip}>Finalizar sin verificar más bultos</GhostBtn>
         </div>
       </Card>
       <Card>
