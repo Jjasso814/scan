@@ -40,30 +40,21 @@ REGLAS:
 12) marca y modelo: busca en todas las etiquetas. Llena marca y modelo en CADA parte.
 13) po vs referencia — campos DISTINTOS:
     - po: PO del CLIENTE. Busca "Customer P/O", "P.O. Number", "PO#", "Purchase Order".
-      Ej: "PO# 11089" en etiqueta de producto → po="11089". "Customer P/O: P433170-00" → po="P433170-00".
-    - referencia: número del documento del proveedor. Busca "Order Number", "Packing Slip #", "Delivery Note",
-      "Invoice No.", "Folio". Ej: "Order Number: P159308" → referencia="P159308".
-14) cantidad — FUENTE DE VERDAD por orden de prioridad:
-    a) PRIMERO: usa la cantidad del Packing List/Packing Slip (es el total del pedido).
-       Ej: si el packing list dice "Qty: 600" para una parte → cantidad=600.
-    b) SEGUNDO: si no hay packing list, usa la cantidad de la etiqueta de transportista.
-    c) TERCERO: si solo hay etiquetas de producto individuales, suma las cantidades de todas las bolsas/piezas.
-    NUNCA uses la cantidad de UNA sola bolsa o empaque individual si el packing list indica un total mayor.
-15) tracking — cuenta los caracteres cuidadosamente:
-    - UPS: empieza con "1Z", tiene exactamente 18 caracteres alfanuméricos. Ej: "1ZY861480357175943".
-    - FedEx: tiene 12 dígitos. Ej: "418381345270".
-    Elimina espacios al escribir el tracking. Si dudas de un carácter, prefija con ⚠️.
-16) no_parte con fracciones: lee las fracciones con cuidado. Confusiones frecuentes:
-    5/8 ≠ 3/8  (el numerador 5 y el 3 se parecen en documentos borrosos — verifica dos veces)
-    6 ≠ 9, 3 ≠ 8, M ≠ W, 0 ≠ O, 1 ≠ I.
-    Si el no_parte aparece en varias etiquetas, usa el que más se repite.
+      Ej: "PO# 11089" en etiqueta → po="11089". "Customer P/O: P433170-00" → po="P433170-00".
+    - referencia: número del documento del proveedor. Busca "Order Number", "Packing Slip #",
+      "Delivery Note", "Invoice No.". Ej: "Order Number: P159308" → referencia="P159308".
+${reglaCantidad}
+15) tracking — cuenta los caracteres:
+    - UPS: empieza con "1Z", exactamente 18 caracteres. Ej: "1ZY861480357175943".
+    - FedEx: 12 dígitos. Ej: "418381345270". Elimina espacios al escribir el tracking.
+16) no_parte con fracciones — lee con cuidado:
+    5/8 ≠ 3/8, 6 ≠ 9, 3 ≠ 8, M ≠ W, 0 ≠ O, 1 ≠ I.
+    Si el no_parte aparece en varias etiquetas, usa el valor que más se repite.
 17) marca vs modelo:
-    - marca: empresa fabricante. Ej: "Nordson", "Parker". Si ves "Nordson EFD" → marca="Nordson".
-    - modelo: nombre del producto específico. Ej: "Optimum". "EFD" es línea de producto, NO modelo.
-18) descripcion: describe el artículo con claridad, sin repetir la medida ya incluida en no_parte.
-    Ej: "1 1/2 40.010 SS Circle" → descripcion="Círculo de acero inoxidable 1½ pulgada malla 40.010"
-    NO repitas el no_parte completo en la descripción.
-${reglaCantidad}`;
+    - marca: empresa fabricante. Ej: "Nordson". Si ves "Nordson EFD" → marca="Nordson".
+    - modelo: producto específico. Ej: "Optimum". "EFD" es línea de producto, NO modelo.
+18) descripcion: describe el artículo sin repetir el no_parte completo.
+    Ej: "1 1/2 40.010 SS Circle" → "Círculo de acero inoxidable 1½ pulgada malla 40.010"`;
 }
 
 // Compatibilidad: exportar el prompt base sin tipo (usa materia_prima por defecto)
