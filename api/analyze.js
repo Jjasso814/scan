@@ -76,10 +76,6 @@ export default async function handler(req, res) {
                               role: "user",
                               content: [...images, { type: "text", text }],
                             },
-                            {
-                              role: "assistant",
-                              content: "{",
-                            },
                           ],
                 }),
         });

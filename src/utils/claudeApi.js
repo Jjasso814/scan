@@ -170,8 +170,7 @@ export async function callClaude(system, images, text) {
 
   const d   = await res.json();
   const raw = d.content?.find((b) => b.type === "text")?.text || "";
-  // El prefill "{" no aparece en la respuesta — se debe anteponer para parsear correctamente
-  const cleaned = ("{" + raw).replace(/```json|```/g, "").trim();
+  const cleaned = raw.replace(/```json|```/g, "").trim();
 
   try {
     return JSON.parse(cleaned);
