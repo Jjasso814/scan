@@ -52,20 +52,24 @@ REGLAS:
    NO incluyas el número de piezas al final. Ej: "PISTON O 5CC WH WIPER 100" → "Pistón O 5CC con limpiador blanco".
 10) descripcion_ingles: OBLIGATORIO en inglés. NUNCA dejes null si tienes descripción.
     NO incluyas el número de piezas al final. Ej: "PISTON O 5CC WH WIPER 100" → "Piston O 5CC with white wiper".
-11) serie: busca en TODAS las imágenes los campos "Lot/SN", "Lot", "S/N", "Serial", "Lote".
-    El número DESPUÉS de esas etiquetas ES el número de serie.
-    ⛔ INCORRECTO: serie=null cuando "Lot/SN: 40048850164" es visible en alguna imagen.
-    ✅ CORRECTO:   serie="40048850164".
+11) serie: busca SOLO los campos "Lot/SN", "Lot", "S/N", "Serial", "Lote" en las etiquetas.
+    El número DESPUÉS de esas palabras ES el número de serie.
+    ⛔ NUNCA pongas "PO#", "P/O:", "Purchase Order" en serie — esos son campos de po.
+    ⛔ INCORRECTO: serie="PO# 11089"  ✅ CORRECTO: serie=null (PO va en el campo po)
+    ✅ CORRECTO: si ves "Lot/SN: 40048850164" → serie="40048850164".
     Asigna el Lot/SN correcto a cada no_parte según qué etiqueta corresponde a qué parte.
 12) marca y modelo — aplica a TODAS las filas sin excepción:
     marca: SOLO empresa fabricante. Elimina líneas de producto, divisiones y sufijos corporativos.
-    ⛔ INCORRECTO: "Nordson EFD", "Parker Hannifin Corp", "3M Company"
-    ✅ CORRECTO:   "Nordson",     "Parker",               "3M"
+    ⛔ INCORRECTO: "Nordson EFD", "Parker Hannifin Corp", "Rowe Process Supply", "Rowe Equipment Inc"
+    ✅ CORRECTO:   "Nordson",     "Parker",               "Rowe",               "Rowe"
+    Si todos los productos son del mismo fabricante, usa la misma marca en TODAS las filas.
     modelo: nombre específico del producto. "EFD" es línea de producto, NO es modelo.
     ⛔ INCORRECTO: modelo="EFD"    ✅ CORRECTO: modelo="Optimum"
 13) po vs referencia — campos DISTINTOS:
-    - po: PO del CLIENTE. Busca "Customer P/O", "P.O. Number", "PO#", "Purchase Order".
-      Ej: "PO# 11089" en etiqueta → po="11089". "Customer P/O: P433170-00" → po="P433170-00".
+    - po: PO del CLIENTE. Busca "Customer P/O", "P.O. Number", "PO#", "Purchase Order" en
+      CUALQUIER imagen (packing list, etiqueta de transportista O etiqueta del producto).
+      Ej: "PO# 11089" en etiqueta de producto → po="11089".
+      "Customer P/O: P433170-00" → po="P433170-00".
     - referencia: número del documento del proveedor. Busca "Order Number", "Packing Slip #",
       "Delivery Note", "Invoice No.". Ej: "Order Number: P159308" → referencia="P159308".
 ${reglaCantidad}
