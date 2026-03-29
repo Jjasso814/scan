@@ -95,8 +95,11 @@ export default function App() {
   };
 
   const handleDownload = () => {
+    const now = new Date();
+    const fecha = now.toLocaleDateString("es-MX").replace(/\//g, "-");
+    const hora  = now.toTimeString().slice(0, 8).replace(/:/g, "-");
     const url = URL.createObjectURL(new Blob([buildCSV(rows)], { type: "text/csv;charset=utf-8;" }));
-    Object.assign(document.createElement("a"), { href: url, download: "IDEAScan_" + new Date().toLocaleDateString("es-MX").replace(/\//g, "-") + ".csv" }).click();
+    Object.assign(document.createElement("a"), { href: url, download: `IDEAScan_${fecha}_${hora}.csv` }).click();
     URL.revokeObjectURL(url);
   };
 
@@ -105,7 +108,9 @@ export default function App() {
 
     setLoading(true); setLoadMsg("Comprimiendo imágenes...");
     try {
-      const fecha = new Date().toLocaleDateString("es-MX");
+      const now   = new Date();
+      const fecha = now.toLocaleDateString("es-MX");
+      const hora  = now.toTimeString().slice(0, 8).replace(/:/g, "-");
 
       // Redimensionar imágenes a máx 1024px antes de enviar
       const resized = (await Promise.all(allImgs.map(resizeForEmail))).filter(Boolean);
@@ -137,7 +142,7 @@ export default function App() {
         `${"─".repeat(40)}\n\n` +
         partes + "\n\n" +
         `${"─".repeat(40)}\n` +
-        `Adjuntos: IDEAScan_${fecha.replace(/\//g,"-")}.csv + ${resized.length} imagen(es)\n` +
+        `Adjuntos: IDEAScan_${fecha.replace(/\//g,"-")}_${hora}.csv + ${resized.length} imagen(es)\n` +
         `Generado por IDEAScan · Group CCA`;
 
       const resp = await fetch("/api/sendmail", {
@@ -148,7 +153,7 @@ export default function App() {
           subject: "IDEAScan — Inspección " + fecha,
           text,
           csvData: buildCSV(rows),
-          csvFilename: "IDEAScan_" + fecha.replace(/\//g, "-") + ".csv",
+          csvFilename: `IDEAScan_${fecha.replace(/\//g, "-")}_${hora}.csv`,
           images: resized,
         }),
       });
