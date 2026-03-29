@@ -19,34 +19,34 @@ REGLAS:
 9) descripcion: OBLIGATORIO en español. Si el texto está en inglés, tradúcelo. NUNCA dejes null si tienes descripción.
    Ej: "PISTON O 5CC WH WIPER" → "Pistón O 5CC con limpiador blanco".
 10) descripcion_ingles: OBLIGATORIO en inglés. Si el texto está en español, tradúcelo. NUNCA dejes null si tienes descripción.
-11) serie: busca en etiquetas de producto los campos "Lot/SN", "Lot", "S/N", "Serial", "Serie", "Lote".
-    Si hay varias partes, asigna el número de serie que corresponde a cada no_parte según las etiquetas visibles.
-12) marca y modelo: busca en todas las etiquetas de producto. Si hay varias partes, llena marca y modelo en CADA parte.
-13) po vs referencia — son campos DISTINTOS, NO los confundas:
-    - po: ÚNICAMENTE el número de orden de compra del CLIENTE. Busca la etiqueta exacta "Customer P/O",
-      "Customer Purchase Order", "P.O. Number", "Orden de Compra del Cliente".
-      Ej: "Customer P/O: P433170-00" → po = "P433170-00". NUNCA uses el Customer Number ni el Order Number.
-    - referencia: el número interno del documento de envío del proveedor. Busca "Order Number", "Order No.",
-      "Delivery Note", "Packing List No.", "Invoice No.", "Shipping Number", "Folio".
-      Ej: "Order Number: 0169067" → referencia = "0169067".
-    - Si ves DOS números (ej. Order Number y Shipping Number), usa el Order Number en referencia.
-14) no_parte y números en general: LEE CON CUIDADO cada dígito. Dígitos y letras que se confunden:
-    6 ≠ 9  (el 6 tiene la cola hacia ABAJO; el 9 tiene la cola hacia ARRIBA)
-    3 ≠ 8  (el 3 está ABIERTO por la derecha; el 8 está completamente CERRADO)
-    M ≠ W  (M tiene pico central hacia arriba; W tiene pico hacia abajo)
-    0 ≠ O  (el cero 0 es más estrecho; la O es más redonda)
-    1 ≠ I ≠ L  (el 1 tiene base; la I tiene serifs; la L es esquina recta)
-    Si el número de parte aparece en VARIAS etiquetas, compara todas y usa el valor que más se repite.
-15) marca vs modelo — son campos DISTINTOS:
-    - marca: el nombre de la EMPRESA fabricante únicamente. Ej: "Nordson", "Parker", "Bosch".
-      Si ves "Nordson EFD" en una etiqueta, la marca es solo "Nordson".
-    - modelo: el nombre ESPECÍFICO del producto o modelo. Ej: "Optimum", "Serie 3000", "XR-5".
-      "EFD" es una línea de productos de Nordson, NO es el modelo. El modelo sería "Optimum" u otro nombre de producto.
-      Si la caja muestra "Nordson EFD" y "Optimum", entonces marca="Nordson" y modelo="Optimum".
-16) serie: busca CON PRIORIDAD en etiquetas de producto los campos "Lot/SN", "Lot", "S/N", "Serial Number",
-    "Serie", "Lote", "Batch". El número que sigue a estas etiquetas ES el número de serie.
-    Ej: "Lot/SN: 40048850164" → serie = "40048850164".
-    Si hay varias partes, asigna el Lot/SN que corresponde a cada no_parte según su etiqueta individual.`;
+11) serie: busca en etiquetas de producto "Lot/SN", "Lot", "S/N", "Serial", "Serie", "Lote", "Batch".
+    Asigna el Lot/SN de cada etiqueta al no_parte correspondiente. Ej: "Lot/SN: 40048850164" → serie="40048850164".
+12) marca y modelo: busca en todas las etiquetas. Llena marca y modelo en CADA parte.
+13) po vs referencia — campos DISTINTOS:
+    - po: PO del CLIENTE. Busca "Customer P/O", "P.O. Number", "PO#", "Purchase Order".
+      Ej: "PO# 11089" en etiqueta de producto → po="11089". "Customer P/O: P433170-00" → po="P433170-00".
+    - referencia: número del documento del proveedor. Busca "Order Number", "Packing Slip #", "Delivery Note",
+      "Invoice No.", "Folio". Ej: "Order Number: P159308" → referencia="P159308".
+14) cantidad — FUENTE DE VERDAD por orden de prioridad:
+    a) PRIMERO: usa la cantidad del Packing List/Packing Slip (es el total del pedido).
+       Ej: si el packing list dice "Qty: 600" para una parte → cantidad=600.
+    b) SEGUNDO: si no hay packing list, usa la cantidad de la etiqueta de transportista.
+    c) TERCERO: si solo hay etiquetas de producto individuales, suma las cantidades de todas las bolsas/piezas.
+    NUNCA uses la cantidad de UNA sola bolsa o empaque individual si el packing list indica un total mayor.
+15) tracking — cuenta los caracteres cuidadosamente:
+    - UPS: empieza con "1Z", tiene exactamente 18 caracteres alfanuméricos. Ej: "1ZY861480357175943".
+    - FedEx: tiene 12 dígitos. Ej: "418381345270".
+    Elimina espacios al escribir el tracking. Si dudas de un carácter, prefija con ⚠️.
+16) no_parte con fracciones: lee las fracciones con cuidado. Confusiones frecuentes:
+    5/8 ≠ 3/8  (el numerador 5 y el 3 se parecen en documentos borrosos — verifica dos veces)
+    6 ≠ 9, 3 ≠ 8, M ≠ W, 0 ≠ O, 1 ≠ I.
+    Si el no_parte aparece en varias etiquetas, usa el que más se repite.
+17) marca vs modelo:
+    - marca: empresa fabricante. Ej: "Nordson", "Parker". Si ves "Nordson EFD" → marca="Nordson".
+    - modelo: nombre del producto específico. Ej: "Optimum". "EFD" es línea de producto, NO modelo.
+18) descripcion: describe el artículo con claridad, sin repetir la medida ya incluida en no_parte.
+    Ej: "1 1/2 40.010 SS Circle" → descripcion="Círculo de acero inoxidable 1½ pulgada malla 40.010"
+    NO repitas el no_parte completo en la descripción.`;
 
 /**
  * Construye el prompt de verificación para la Fase 3 (bulto individual).
