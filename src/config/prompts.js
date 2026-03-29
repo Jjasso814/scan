@@ -1,7 +1,7 @@
 // Prompt para la Fase 2: extracción de datos del Packing List y etiqueta de transportista
 export const PHASE2_PROMPT = `Eres experto en documentos logísticos. Analiza TODAS las imágenes \
 (Packing Lists, etiquetas de transportista y etiquetas de producto) y devuelve SOLO este JSON sin texto extra ni markdown:
-{"vendor":null,"po":null,"importador":null,"origen":null,"carrier":null,"tracking":null,\
+{"vendor":null,"po":null,"referencia":null,"importador":null,"origen":null,"carrier":null,"tracking":null,\
 "bultos_total":1,"peso_lbs":null,"peso_kgs":null,"tipo_bulto":null,\
 "partes":[{"no_parte":null,"descripcion":null,"descripcion_ingles":null,\
 "cantidad":null,"um":null,"valor":null,"fraccion":null,"marca":null,"modelo":null,"serie":null}]}
@@ -21,7 +21,20 @@ REGLAS:
 10) descripcion_ingles: OBLIGATORIO en inglés. Si el texto está en español, tradúcelo. NUNCA dejes null si tienes descripción.
 11) serie: busca en etiquetas de producto los campos "Lot/SN", "Lot", "S/N", "Serial", "Serie", "Lote".
     Si hay varias partes, asigna el número de serie que corresponde a cada no_parte según las etiquetas visibles.
-12) marca y modelo: busca en todas las etiquetas de producto. Si hay varias partes, llena marca y modelo en CADA parte.`;
+12) marca y modelo: busca en todas las etiquetas de producto. Si hay varias partes, llena marca y modelo en CADA parte.
+13) po vs referencia — son campos DISTINTOS, NO los confundas:
+    - po: el número de orden de compra del CLIENTE. Busca "Customer P/O", "Purchase Order", "P.O.", "Orden de Compra".
+      Ej: "Customer P/O: 4508005783" → po = "4508005783".
+    - referencia: el número interno del documento de envío. Busca "Delivery Note", "Delivery No.", "Nota de Entrega",
+      "Packing List No.", "Invoice No.", "Folio", "Reference". Ej: "Delivery note: 855447424" → referencia = "855447424".
+    - Si solo ves un número sin etiqueta clara, ponlo en referencia.
+14) no_parte: LEE CON CUIDADO cada carácter del número de parte. Los sufijos de letras son CRÍTICOS.
+    Letras que se confunden fácilmente — verifica dos veces:
+    M ≠ W  (M tiene pico central hacia arriba; W tiene pico hacia abajo)
+    0 ≠ O  (el cero 0 es más ovalado/estrecho; la O es más redonda)
+    1 ≠ I ≠ L  (el 1 tiene base; la I tiene serifs; la L es esquina)
+    B ≠ 8  (B tiene dos curvas rectas; el 8 es completamente curvo)
+    Si el número de parte aparece en VARIAS etiquetas, compara todas y usa el valor que aparece más veces.`;
 
 /**
  * Construye el prompt de verificación para la Fase 3 (bulto individual).

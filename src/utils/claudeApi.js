@@ -172,7 +172,7 @@ export function buildRows(ext, tipo) {
     fecha: new Date().toLocaleDateString("es-MX"),
     importador: ext.importador, proveedor: ext.vendor,
     transportista: normalizeCarrier(ext.carrier),
-    trailer: null, referencia: null, po: ext.po,
+    trailer: null, referencia: ext.referencia || null, po: ext.po,
     peso_lbs: ext.peso_lbs, peso_kgs: ext.peso_kgs,
     tipo_bulto: normalizeTipoBulto(ext.tipo_bulto), valor: null,
     origen: normalizeOrigen(ext.origen),
