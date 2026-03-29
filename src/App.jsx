@@ -1,8 +1,7 @@
 import { useState, useCallback } from "react";
-import emailjs from "@emailjs/browser";
 import { C, FIXED_EMAIL } from "./config/constants";
 import { PHASE2_PROMPT, buildPhase3Prompt } from "./config/prompts";
-import { callClaude, buildRows, buildCSV, toUrl } from "./utils/claudeApi";
+import { callClaude, buildRows, buildCSV, toUrl, resizeForEmail } from "./utils/claudeApi";
 import Header      from "./components/Header";
 import StepBar     from "./components/StepBar";
 import LoginScreen from "./components/LoginScreen";
@@ -102,13 +101,17 @@ export default function App() {
   };
 
   const handleEmail = async () => {
-    // 1. Descargar CSV automáticamente
-    handleDownload();
+    handleDownload(); // descarga el CSV automáticamente
 
-    // 2. Enviar email con resumen en texto plano (funciona con cualquier plantilla EmailJS)
-    setLoading(true); setLoadMsg("Enviando correo...");
+    setLoading(true); setLoadMsg("Comprimiendo imágenes...");
     try {
       const fecha = new Date().toLocaleDateString("es-MX");
+
+      // Redimensionar imágenes a máx 1024px antes de enviar
+      const resized = (await Promise.all(allImgs.map(resizeForEmail))).filter(Boolean);
+
+      setLoadMsg("Enviando correo con adjuntos...");
+
       const partes = rows.map((r, i) =>
         `Línea ${i + 1}:\n` +
         `  No. Parte   : ${r.no_parte      || "-"}\n` +
@@ -125,28 +128,41 @@ export default function App() {
         `  Observ.     : ${r.observaciones || "-"}`
       ).join("\n\n");
 
-      const html_body =
+      const text =
         `IDEAScan — Resultado de Inspección\n` +
         `${"=".repeat(40)}\n` +
         `Fecha    : ${fecha}\n` +
         `Tipo     : ${rows[0]?._tipo === "maquinaria" ? "Maquinaria" : "Materia Prima"}\n` +
-        `Líneas   : ${rows.length}\n` +
-        `Imágenes : ${allImgs.length}\n` +
+        `Líneas   : ${rows.length}  |  Imágenes: ${allImgs.length}\n` +
         `${"─".repeat(40)}\n\n` +
         partes + "\n\n" +
         `${"─".repeat(40)}\n` +
-        `El archivo CSV fue descargado automáticamente en tu dispositivo.\n` +
+        `Adjuntos: IDEAScan_${fecha.replace(/\//g,"-")}.csv + ${resized.length} imagen(es)\n` +
         `Generado por IDEAScan · Group CCA`;
 
-      await emailjs.send(
-        import.meta.env.VITE_EMAILJS_SERVICE_ID,
-        import.meta.env.VITE_EMAILJS_TEMPLATE_ID,
-        { to_email: FIXED_EMAIL, subject: "IDEAScan — Inspección " + fecha, html_body },
-        import.meta.env.VITE_EMAILJS_PUBLIC_KEY
-      );
-      setEmailMsg("✅ CSV descargado y correo enviado a " + FIXED_EMAIL);
-    } catch (e) { setEmailMsg("❌ Error al enviar: " + (e?.text || e?.message || "Verifica la configuración de EmailJS")); }
-    finally { setLoading(false); }
+      const resp = await fetch("/api/sendmail", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          to: FIXED_EMAIL,
+          subject: "IDEAScan — Inspección " + fecha,
+          text,
+          csvData: buildCSV(rows),
+          csvFilename: "IDEAScan_" + fecha.replace(/\//g, "-") + ".csv",
+          images: resized,
+        }),
+      });
+
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({}));
+        throw new Error(err.error || "Error del servidor " + resp.status);
+      }
+      setEmailMsg("✅ CSV e imágenes enviados a " + FIXED_EMAIL);
+    } catch (e) {
+      setEmailMsg("❌ Error al enviar: " + e.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
