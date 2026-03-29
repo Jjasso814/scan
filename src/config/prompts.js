@@ -2,12 +2,14 @@
 export function buildPhase2Prompt(tipo) {
   const esMaq = tipo === "maquinaria";
   const reglaCantidad = esMaq
-    ? `14) cantidad para MAQUINARIA — fuente prioritaria: las imágenes de los productos/cajas.
-    a) PRIMERO: busca en las etiquetas o nombres de las cajas la cantidad de PIEZAS por empaque.
-       Ej: "PISTON O 10CC WH WIPER 100" → el número al final (100) = piezas por caja → cantidad=100.
-       Ej: etiqueta dice "Qty: 100" → cantidad=100.
-    b) SEGUNDO: si la imagen no indica claramente cuántas piezas hay, usa el packing list.
-    NUNCA pongas 1 si las imágenes o etiquetas del producto indican una cantidad mayor.`
+    ? `14) cantidad para MAQUINARIA — las piezas por empaque, NO el número de cajas:
+    IMPORTANTE: el Packing List suele decir "Qty: 1" porque es 1 CAJA/EMPAQUE, no 1 pieza.
+    La cantidad real de PIEZAS se encuentra en las etiquetas del producto o en su nombre:
+    - Si el nombre del producto termina en un número → ese es el conteo de piezas por empaque.
+      Ej: "PISTON O 10CC WH WIPER 100" → 100 piezas. "VALVE BODY 50" → 50 piezas.
+    - Si la etiqueta del producto dice "Qty: 100" → cantidad=100.
+    - Si el nombre dice "WIPER 100" y el Packing List dice "Qty: 1" → cantidad=100 (la caja contiene 100 piezas).
+    NUNCA uses el Qty del Packing List si el nombre del producto o su etiqueta indica una cantidad mayor.`
     : `14) cantidad para MATERIA PRIMA — fuente prioritaria: el Packing List / Packing Slip.
     a) PRIMERO: usa la cantidad TOTAL del Packing List para cada número de parte.
        Ej: packing list dice "Qty: 600" → cantidad=600, aunque cada bolsa individual diga "Qty: 100".
@@ -35,9 +37,13 @@ REGLAS:
 9) descripcion: OBLIGATORIO en español. Si el texto está en inglés, tradúcelo. NUNCA dejes null si tienes descripción.
    Ej: "PISTON O 5CC WH WIPER" → "Pistón O 5CC con limpiador blanco".
 10) descripcion_ingles: OBLIGATORIO en inglés. Si el texto está en español, tradúcelo. NUNCA dejes null si tienes descripción.
-11) serie: busca en etiquetas de producto "Lot/SN", "Lot", "S/N", "Serial", "Serie", "Lote", "Batch".
-    Asigna el Lot/SN de cada etiqueta al no_parte correspondiente. Ej: "Lot/SN: 40048850164" → serie="40048850164".
-12) marca y modelo: busca en todas las etiquetas. Llena marca y modelo en CADA parte.
+11) serie: en las etiquetas de producto busca los campos "Lot/SN", "Lot", "S/N", "Serial", "Lote".
+    El número que aparece DESPUÉS de esas palabras ES el número de serie — captúralo siempre.
+    Ej: si ves "Lot/SN: 40048850164" → serie="40048850164". NUNCA dejes serie en null si está visible.
+    Asigna el Lot/SN correcto a cada no_parte según qué etiqueta corresponde a qué parte.
+12) marca: SOLO el nombre de la empresa fabricante, NUNCA incluyas la línea de productos.
+    Ej: "Nordson EFD" → marca="Nordson". "Parker Hannifin" → marca="Parker". Aplica esto en TODAS las filas.
+    modelo: el nombre específico del producto. Ej: "Optimum". Aplica en TODAS las filas por igual.
 13) po vs referencia — campos DISTINTOS:
     - po: PO del CLIENTE. Busca "Customer P/O", "P.O. Number", "PO#", "Purchase Order".
       Ej: "PO# 11089" en etiqueta → po="11089". "Customer P/O: P433170-00" → po="P433170-00".

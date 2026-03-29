@@ -58,10 +58,16 @@ export const toUrl = (f) =>
     r.readAsDataURL(f);
   });
 
-/** Quita el prefijo de advertencia "⚠️ " que la IA puede agregar */
+/** Quita el prefijo "⚠️ " al inicio de un valor */
 function stripWarn(v) {
   if (!v) return v;
   return String(v).replace(/^⚠️\s*/, "").trim();
+}
+
+/** Quita TODOS los "⚠️" dentro del string (para tracking y campos numéricos) */
+function stripWarnAll(v) {
+  if (!v) return v;
+  return String(v).replace(/⚠️\s*/g, "").trim();
 }
 
 /** Normaliza el nombre del transportista: solo la marca principal */
@@ -176,7 +182,7 @@ export function buildRows(ext, tipo) {
     peso_lbs: ext.peso_lbs, peso_kgs: ext.peso_kgs,
     tipo_bulto: normalizeTipoBulto(ext.tipo_bulto), valor: null,
     origen: normalizeOrigen(ext.origen),
-    fraccion: null, locacion: null, tracking: ext.tracking,
+    fraccion: null, locacion: null, tracking: stripWarnAll(ext.tracking),
     marca: null, modelo: null, serie: null, observaciones: null,
   };
 
