@@ -46,8 +46,12 @@ REGLAS:
 6) carrier: SOLO el nombre de la empresa, sin tipo de servicio ni modalidad.
    Ej: "UPS GROUND" → "UPS", "FEDEX EXPRESS" → "FEDEX", "DHL EXPRESS" → "DHL", "XPO LOGISTICS" → "XPO".
 7) tipo_bulto: usa SOLO estas abreviaturas: BX=caja/box, TA=tarima/pallet, BU=bulto/bundle, TU=tubo/tube.
-8) origen: USA SIEMPRE código ISO-2. Si ves "COO: US", "Made in USA", una ciudad americana o estado como "CA 90670" → "US".
-   NUNCA pongas la dirección completa. Solo el código de 2 letras: MX, US, CN, CA, DE, JP, etc.
+8) origen: país de FABRICACIÓN del producto (no de envío). Usa código ISO-2.
+   Busca "Made in", "COO:", "Country of Origin", "Fabricado en" en las etiquetas del producto.
+   ⛔ La dirección del remitente NO es el origen — es donde se envía desde, no donde se fabricó.
+   ✅ "Made in China" → "CN". "Made in USA" → "US". "Made in Mexico" → "MX".
+   Si no encuentras "Made in" ni "COO", y ves dirección americana (ej. "CA 90670") → "US".
+   Solo código de 2 letras: MX, US, CN, CA, DE, JP, KR, TW, etc.
 9) descripcion: OBLIGATORIO en español. Traduce el nombre del artículo. NUNCA dejes null si tienes descripción.
    NO incluyas el número de piezas al final. Ej: "PISTON O 5CC WH WIPER 100" → "Pistón O 5CC con limpiador blanco".
 10) descripcion_ingles: OBLIGATORIO en inglés. NUNCA dejes null si tienes descripción.

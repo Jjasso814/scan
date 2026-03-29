@@ -77,7 +77,9 @@ function stripWarnAll(v) {
 function normalizeTracking(v) {
   if (!v) return v;
   let t = stripWarnAll(v).replace(/\s+/g, "").toUpperCase();
-  // Corrección OCR para UPS: después del prefijo "1Z", O→0 e I→1 en posiciones que deben ser dígitos
+  // OCR: "12" al inicio de un tracking de 18 chars casi siempre es "1Z" (Z leída como 2)
+  if (t.startsWith("12") && t.length === 18) t = "1Z" + t.slice(2);
+  // Corrección OCR para UPS: después del prefijo "1Z", O→0 e I→1
   if (t.startsWith("1Z") && t.length === 18) {
     const suffix = t.slice(2).replace(/O/g, "0").replace(/I/g, "1");
     t = "1Z" + suffix;
