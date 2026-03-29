@@ -23,18 +23,30 @@ REGLAS:
     Si hay varias partes, asigna el número de serie que corresponde a cada no_parte según las etiquetas visibles.
 12) marca y modelo: busca en todas las etiquetas de producto. Si hay varias partes, llena marca y modelo en CADA parte.
 13) po vs referencia — son campos DISTINTOS, NO los confundas:
-    - po: el número de orden de compra del CLIENTE. Busca "Customer P/O", "Purchase Order", "P.O.", "Orden de Compra".
-      Ej: "Customer P/O: 4508005783" → po = "4508005783".
-    - referencia: el número interno del documento de envío. Busca "Delivery Note", "Delivery No.", "Nota de Entrega",
-      "Packing List No.", "Invoice No.", "Folio", "Reference". Ej: "Delivery note: 855447424" → referencia = "855447424".
-    - Si solo ves un número sin etiqueta clara, ponlo en referencia.
-14) no_parte: LEE CON CUIDADO cada carácter del número de parte. Los sufijos de letras son CRÍTICOS.
-    Letras que se confunden fácilmente — verifica dos veces:
+    - po: ÚNICAMENTE el número de orden de compra del CLIENTE. Busca la etiqueta exacta "Customer P/O",
+      "Customer Purchase Order", "P.O. Number", "Orden de Compra del Cliente".
+      Ej: "Customer P/O: P433170-00" → po = "P433170-00". NUNCA uses el Customer Number ni el Order Number.
+    - referencia: el número interno del documento de envío del proveedor. Busca "Order Number", "Order No.",
+      "Delivery Note", "Packing List No.", "Invoice No.", "Shipping Number", "Folio".
+      Ej: "Order Number: 0169067" → referencia = "0169067".
+    - Si ves DOS números (ej. Order Number y Shipping Number), usa el Order Number en referencia.
+14) no_parte y números en general: LEE CON CUIDADO cada dígito. Dígitos y letras que se confunden:
+    6 ≠ 9  (el 6 tiene la cola hacia ABAJO; el 9 tiene la cola hacia ARRIBA)
+    3 ≠ 8  (el 3 está ABIERTO por la derecha; el 8 está completamente CERRADO)
     M ≠ W  (M tiene pico central hacia arriba; W tiene pico hacia abajo)
-    0 ≠ O  (el cero 0 es más ovalado/estrecho; la O es más redonda)
-    1 ≠ I ≠ L  (el 1 tiene base; la I tiene serifs; la L es esquina)
-    B ≠ 8  (B tiene dos curvas rectas; el 8 es completamente curvo)
-    Si el número de parte aparece en VARIAS etiquetas, compara todas y usa el valor que aparece más veces.`;
+    0 ≠ O  (el cero 0 es más estrecho; la O es más redonda)
+    1 ≠ I ≠ L  (el 1 tiene base; la I tiene serifs; la L es esquina recta)
+    Si el número de parte aparece en VARIAS etiquetas, compara todas y usa el valor que más se repite.
+15) marca vs modelo — son campos DISTINTOS:
+    - marca: el nombre de la EMPRESA fabricante únicamente. Ej: "Nordson", "Parker", "Bosch".
+      Si ves "Nordson EFD" en una etiqueta, la marca es solo "Nordson".
+    - modelo: el nombre ESPECÍFICO del producto o modelo. Ej: "Optimum", "Serie 3000", "XR-5".
+      "EFD" es una línea de productos de Nordson, NO es el modelo. El modelo sería "Optimum" u otro nombre de producto.
+      Si la caja muestra "Nordson EFD" y "Optimum", entonces marca="Nordson" y modelo="Optimum".
+16) serie: busca CON PRIORIDAD en etiquetas de producto los campos "Lot/SN", "Lot", "S/N", "Serial Number",
+    "Serie", "Lote", "Batch". El número que sigue a estas etiquetas ES el número de serie.
+    Ej: "Lot/SN: 40048850164" → serie = "40048850164".
+    Si hay varias partes, asigna el Lot/SN que corresponde a cada no_parte según su etiqueta individual.`;
 
 /**
  * Construye el prompt de verificación para la Fase 3 (bulto individual).
