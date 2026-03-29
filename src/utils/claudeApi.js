@@ -188,12 +188,25 @@ export async function callClaude(system, images, text) {
 /** Construye el array de filas de la tabla a partir de la extracción de la IA */
 export function buildRows(ext, tipo) {
   const esMaq = tipo === "maquinaria";
+
+  // Si el AI puso "PO# XXXX" en el campo serie de alguna parte, rescatarlo al campo po
+  let resolvedPo = ext.po || null;
+  const partes = (ext.partes || []).map((p) => {
+    if (!p.serie) return p;
+    const m = String(p.serie).match(/^(?:PO#?|P\/O:?|PURCHASE\s+ORDER:?)\s*(\S+)/i);
+    if (m) {
+      if (!resolvedPo) resolvedPo = m[1];
+      return { ...p, serie: null };
+    }
+    return p;
+  });
+
   const base = {
     entry_no: null, no_inspeccion: null,
     fecha: new Date().toLocaleDateString("es-MX"),
     importador: ext.importador, proveedor: ext.vendor,
     transportista: normalizeCarrier(ext.carrier),
-    trailer: null, referencia: ext.referencia || null, po: ext.po,
+    trailer: null, referencia: ext.referencia || null, po: resolvedPo,
     peso_lbs: ext.peso_lbs, peso_kgs: ext.peso_kgs,
     tipo_bulto: normalizeTipoBulto(ext.tipo_bulto), valor: null,
     origen: normalizeOrigen(ext.origen),
@@ -201,7 +214,7 @@ export function buildRows(ext, tipo) {
     marca: null, modelo: null, serie: null, observaciones: null,
   };
 
-  let rows = ext.partes.map((p, i) => {
+  let rows = partes.map((p, i) => {
     let cantidad = p.cantidad;
 
     // Maquinaria: si la IA devuelve cantidad=1 (número de cajas), intentar extraer
