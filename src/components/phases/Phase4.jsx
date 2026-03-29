@@ -1,4 +1,4 @@
-import { C, FIXED_EMAIL } from "../../config/constants";
+import { C } from "../../config/constants";
 import { Card, PrimaryBtn, GhostBtn } from "../UI";
 import ResultTable from "../ResultTable";
 
@@ -61,7 +61,7 @@ export default function Phase4({ rows, setRows, tipo, reconciliation, emailMsg, 
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         <PrimaryBtn onClick={onDownload}>⬇️ Descargar CSV</PrimaryBtn>
         <button onClick={onEmail} style={{ background: C.orange, color: C.white, border: "none", borderRadius: 10, padding: "13px 22px", fontSize: 14, fontWeight: 700, cursor: "pointer", width: "100%" }}>
-          📧 Enviar por correo a {FIXED_EMAIL}
+          📧 Descargar CSV y enviar correo
         </button>
         <GhostBtn onClick={onReset}>🔄 Nueva inspección</GhostBtn>
       </div>
