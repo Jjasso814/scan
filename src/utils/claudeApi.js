@@ -201,19 +201,32 @@ export function buildRows(ext, tipo) {
     marca: null, modelo: null, serie: null, observaciones: null,
   };
 
-  let rows = ext.partes.map((p, i) => ({
-    ...base,
-    no_parte: stripWarn(p.no_parte),
-    descripcion: stripWarn(p.descripcion),
-    descripcion_ingles: stripWarn(p.descripcion_ingles),
-    cantidad: p.cantidad, um: p.um, valor: p.valor, fraccion: p.fraccion,
-    // Maquinaria: solo 1ª fila tiene el número de bulto, el resto vacío
-    bultos: esMaq ? (i === 0 ? 1 : null) : ext.bultos_total,
-    marca:  esMaq ? stripWarn(p.marca)  : null,
-    modelo: esMaq ? stripWarn(p.modelo) : null,
-    serie:  esMaq ? stripWarn(p.serie)  : null,
-    _warnings: [], _tipo: tipo,
-  }));
+  let rows = ext.partes.map((p, i) => {
+    let cantidad = p.cantidad;
+
+    // Maquinaria: si la IA devuelve cantidad=1 (número de cajas), intentar extraer
+    // el número de piezas del nombre del producto (ej: "WIPER 100" → 100).
+    if (esMaq && Number(cantidad) === 1) {
+      const desc = stripWarn(p.descripcion_ingles || p.descripcion || "");
+      // Busca el último número ≥2 al final del texto, seguido opcionalmente de unidades
+      const m = desc.match(/\b(\d{2,})\s*(?:piezas?|pcs?|pieces?|units?|ea)?\s*$/i);
+      if (m && Number(m[1]) > 1) cantidad = Number(m[1]);
+    }
+
+    return {
+      ...base,
+      no_parte: stripWarn(p.no_parte),
+      descripcion: stripWarn(p.descripcion),
+      descripcion_ingles: stripWarn(p.descripcion_ingles),
+      cantidad, um: p.um, valor: p.valor, fraccion: p.fraccion,
+      // Maquinaria: solo 1ª fila tiene el número de bulto, el resto vacío
+      bultos: esMaq ? (i === 0 ? 1 : null) : ext.bultos_total,
+      marca:  esMaq ? stripWarn(p.marca)  : null,
+      modelo: esMaq ? stripWarn(p.modelo) : null,
+      serie:  esMaq ? stripWarn(p.serie)  : null,
+      _warnings: [], _tipo: tipo,
+    };
+  });
 
   // Materia prima: si 1 parte y múltiples bultos, expandir por bulto
   if (!esMaq && rows.length === 1 && ext.bultos_total > 1) {

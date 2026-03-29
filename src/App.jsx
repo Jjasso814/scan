@@ -77,7 +77,8 @@ export default function App() {
     try {
       const res = await callClaude(buildPhase3Prompt(tipo, rows), p3imgs, "Analiza este bulto.");
       const newRows = [...rows];
-      const target  = Math.max(0, newRows.findIndex((r) => r.no_parte === res.no_parte_detectado) || bultoIdx);
+      const found   = newRows.findIndex((r) => r.no_parte === res.no_parte_detectado);
+      const target  = found !== -1 ? found : bultoIdx;
       const row     = { ...newRows[target], _warnings: [...(newRows[target]._warnings || [])] };
       if (res.cantidad_detectada !== null && res.cantidad_detectada !== row.cantidad) { row.cantidad = res.cantidad_detectada; if (!row._warnings.includes("cantidad")) row._warnings.push("cantidad"); }
       if (tipo === "maquinaria") { if (res.marca_detectada) row.marca = res.marca_detectada; if (res.modelo_detectado) row.modelo = res.modelo_detectado; if (res.serie_detectada) row.serie = res.serie_detectada; }
