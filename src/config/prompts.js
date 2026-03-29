@@ -2,14 +2,21 @@
 export function buildPhase2Prompt(tipo) {
   const esMaq = tipo === "maquinaria";
   const reglaCantidad = esMaq
-    ? `14) cantidad para MAQUINARIA — las piezas por empaque, NO el número de cajas:
-    IMPORTANTE: el Packing List suele decir "Qty: 1" porque es 1 CAJA/EMPAQUE, no 1 pieza.
-    La cantidad real de PIEZAS se encuentra en las etiquetas del producto o en su nombre:
-    - Si el nombre del producto termina en un número → ese es el conteo de piezas por empaque.
-      Ej: "PISTON O 10CC WH WIPER 100" → 100 piezas. "VALVE BODY 50" → 50 piezas.
-    - Si la etiqueta del producto dice "Qty: 100" → cantidad=100.
-    - Si el nombre dice "WIPER 100" y el Packing List dice "Qty: 1" → cantidad=100 (la caja contiene 100 piezas).
-    NUNCA uses el Qty del Packing List si el nombre del producto o su etiqueta indica una cantidad mayor.`
+    ? `14) cantidad para MAQUINARIA — REGLA CRÍTICA:
+    El Packing List dice "Qty: 1" porque envía 1 CAJA. Ese "1" es el número de CAJAS, NO de piezas.
+    La cantidad REAL de piezas está en el NOMBRE DEL PRODUCTO o en la etiqueta de la pieza.
+
+    CÓMO ENCONTRAR LA CANTIDAD:
+    a) Busca el último número en el nombre/descripción del producto:
+       "PISTON O 10CC WH WIPER 100" → cantidad=100 (hay 100 piezas en la caja)
+       "VALVE BODY 50"              → cantidad=50
+       "SEAL KIT 25"                → cantidad=25
+    b) Si la etiqueta de la pieza muestra "Qty: 100" → cantidad=100.
+
+    ⛔ INCORRECTO: cantidad=1 porque el Packing List dice "Qty: 1"
+    ✅ CORRECTO:   cantidad=100 porque el nombre dice "WIPER 100"
+
+    Si no encuentras cantidad en nombre ni etiqueta, pon ⚠️ y usa el valor del Packing List.`
     : `14) cantidad para MATERIA PRIMA — fuente prioritaria: el Packing List / Packing Slip.
     a) PRIMERO: usa la cantidad TOTAL del Packing List para cada número de parte.
        Ej: packing list dice "Qty: 600" → cantidad=600, aunque cada bolsa individual diga "Qty: 100".
@@ -35,15 +42,21 @@ REGLAS:
 8) origen: USA SIEMPRE código ISO-2. Si ves "COO: US", "Made in USA", una ciudad americana o estado como "CA 90670" → "US".
    NUNCA pongas la dirección completa. Solo el código de 2 letras: MX, US, CN, CA, DE, JP, etc.
 9) descripcion: OBLIGATORIO en español. Si el texto está en inglés, tradúcelo. NUNCA dejes null si tienes descripción.
-   Ej: "PISTON O 5CC WH WIPER" → "Pistón O 5CC con limpiador blanco".
+   NO incluyas el número de piezas al final — solo describe el artículo.
+   Ej: "PISTON O 5CC WH WIPER 100" → "Pistón O 5CC con limpiador blanco" (sin "100 piezas").
 10) descripcion_ingles: OBLIGATORIO en inglés. Si el texto está en español, tradúcelo. NUNCA dejes null si tienes descripción.
-11) serie: en las etiquetas de producto busca los campos "Lot/SN", "Lot", "S/N", "Serial", "Lote".
-    El número que aparece DESPUÉS de esas palabras ES el número de serie — captúralo siempre.
-    Ej: si ves "Lot/SN: 40048850164" → serie="40048850164". NUNCA dejes serie en null si está visible.
+    NO incluyas el número de piezas al final — solo describe el artículo.
+11) serie: busca en TODAS las imágenes los campos "Lot/SN", "Lot", "S/N", "Serial", "Lote".
+    El número DESPUÉS de esas etiquetas ES el número de serie.
+    ⛔ INCORRECTO: serie=null cuando "Lot/SN: 40048850164" es visible.
+    ✅ CORRECTO:   serie="40048850164".
     Asigna el Lot/SN correcto a cada no_parte según qué etiqueta corresponde a qué parte.
-12) marca: SOLO el nombre de la empresa fabricante, NUNCA incluyas la línea de productos.
-    Ej: "Nordson EFD" → marca="Nordson". "Parker Hannifin" → marca="Parker". Aplica esto en TODAS las filas.
-    modelo: el nombre específico del producto. Ej: "Optimum". Aplica en TODAS las filas por igual.
+12) marca y modelo — regla estricta para TODAS las filas sin excepción:
+    marca: SOLO el nombre de la empresa fabricante. NUNCA incluyas la línea de productos.
+    ⛔ INCORRECTO: marca="Nordson EFD"    ✅ CORRECTO: marca="Nordson"
+    ⛔ INCORRECTO: marca="Parker Hannifin Corp"  ✅ CORRECTO: marca="Parker"
+    modelo: nombre específico del producto. "EFD" es línea de producto, NO es modelo.
+    ⛔ INCORRECTO: modelo="EFD"    ✅ CORRECTO: modelo="Optimum"
 13) po vs referencia — campos DISTINTOS:
     - po: PO del CLIENTE. Busca "Customer P/O", "P.O. Number", "PO#", "Purchase Order".
       Ej: "PO# 11089" en etiqueta → po="11089". "Customer P/O: P433170-00" → po="P433170-00".
@@ -56,10 +69,7 @@ ${reglaCantidad}
 16) no_parte con fracciones — lee con cuidado:
     5/8 ≠ 3/8, 6 ≠ 9, 3 ≠ 8, M ≠ W, 0 ≠ O, 1 ≠ I.
     Si el no_parte aparece en varias etiquetas, usa el valor que más se repite.
-17) marca vs modelo:
-    - marca: empresa fabricante. Ej: "Nordson". Si ves "Nordson EFD" → marca="Nordson".
-    - modelo: producto específico. Ej: "Optimum". "EFD" es línea de producto, NO modelo.
-18) descripcion: describe el artículo sin repetir el no_parte completo.
+17) descripcion: describe el artículo sin repetir el no_parte completo.
     Ej: "1 1/2 40.010 SS Circle" → "Círculo de acero inoxidable 1½ pulgada malla 40.010"`;
 }
 
@@ -76,14 +86,17 @@ export function buildPhase3Prompt(tipo, rows) {
     ? ',"marca_detectada":null,"modelo_detectado":null,"serie_detectada":null'
     : "";
   const cantNote = tipo === "maquinaria"
-    ? "IMPORTANTE para maquinaria: cantidad_detectada = número de piezas/componentes visibles en ESTA imagen (no el total del Packing List)."
+    ? `cantidad_detectada: busca el número al final del nombre del producto (Ej: "WIPER 100" → 100).
+Si no hay número en el nombre, busca "Qty:" en la etiqueta de la pieza. IGNORA el Qty del Packing List.`
     : "cantidad_detectada = número de unidades visibles en la imagen.";
   const lineas = JSON.stringify(rows.map(r => ({ no_parte: r.no_parte, cantidad: r.cantidad })));
   return `Eres experto en verificación de material logístico. Analiza las imágenes de UN SOLO BULTO.
-Devuelve SOLO este JSON:
+Devuelve SOLO este JSON sin texto adicional:
 {"no_parte_detectado":null,"cantidad_detectada":null${extraFields},"confianza":"alta","observaciones":null}
 Líneas registradas: ${lineas}
 REGLAS: Solo JSON. null si no puedes leer. Prefija con ⚠️ si tienes duda.
 ${cantNote}
-observaciones: elige la frase que corresponda: "BUENAS CONDICIONES", "CAJA DAÑADA", "FALTAN PIEZAS", "INCOMPLETO", "SIN PACKING LIST". Puedes combinar con " / " si aplican varias.`;
+observaciones: USA EXACTAMENTE una de estas frases (puedes combinar con " / "):
+"BUENAS CONDICIONES", "CAJA DAÑADA", "FALTAN PIEZAS", "INCOMPLETO", "SIN PACKING LIST".
+⛔ NO uses otras frases ni texto libre en observaciones.`;
 }
