@@ -1,5 +1,21 @@
 // Prompt para la Fase 2: extracción de datos del Packing List y etiqueta de transportista
-export const PHASE2_PROMPT = `Eres experto en documentos logísticos. Analiza TODAS las imágenes \
+export function buildPhase2Prompt(tipo) {
+  const esMaq = tipo === "maquinaria";
+  const reglaCantidad = esMaq
+    ? `14) cantidad para MAQUINARIA — fuente prioritaria: las imágenes de los productos/cajas.
+    a) PRIMERO: busca en las etiquetas o nombres de las cajas la cantidad de PIEZAS por empaque.
+       Ej: "PISTON O 10CC WH WIPER 100" → el número al final (100) = piezas por caja → cantidad=100.
+       Ej: etiqueta dice "Qty: 100" → cantidad=100.
+    b) SEGUNDO: si la imagen no indica claramente cuántas piezas hay, usa el packing list.
+    NUNCA pongas 1 si las imágenes o etiquetas del producto indican una cantidad mayor.`
+    : `14) cantidad para MATERIA PRIMA — fuente prioritaria: el Packing List / Packing Slip.
+    a) PRIMERO: usa la cantidad TOTAL del Packing List para cada número de parte.
+       Ej: packing list dice "Qty: 600" → cantidad=600, aunque cada bolsa individual diga "Qty: 100".
+    b) SEGUNDO: si no hay packing list, usa la cantidad de la etiqueta del transportista.
+    c) TERCERO: si solo hay etiquetas individuales, suma las cantidades de todas las bolsas/piezas.
+    NUNCA uses la qty de una sola bolsa si el packing list indica un total mayor.`;
+
+  return `Eres experto en documentos logísticos. Analiza TODAS las imágenes \
 (Packing Lists, etiquetas de transportista y etiquetas de producto) y devuelve SOLO este JSON sin texto extra ni markdown:
 {"vendor":null,"po":null,"referencia":null,"importador":null,"origen":null,"carrier":null,"tracking":null,\
 "bultos_total":1,"peso_lbs":null,"peso_kgs":null,"tipo_bulto":null,\
@@ -46,7 +62,12 @@ REGLAS:
     - modelo: nombre del producto específico. Ej: "Optimum". "EFD" es línea de producto, NO modelo.
 18) descripcion: describe el artículo con claridad, sin repetir la medida ya incluida en no_parte.
     Ej: "1 1/2 40.010 SS Circle" → descripcion="Círculo de acero inoxidable 1½ pulgada malla 40.010"
-    NO repitas el no_parte completo en la descripción.`;
+    NO repitas el no_parte completo en la descripción.
+${reglaCantidad}`;
+}
+
+// Compatibilidad: exportar el prompt base sin tipo (usa materia_prima por defecto)
+export const PHASE2_PROMPT = buildPhase2Prompt("materia_prima");
 
 /**
  * Construye el prompt de verificación para la Fase 3 (bulto individual).

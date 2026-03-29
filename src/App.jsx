@@ -1,6 +1,6 @@
 import { useState, useCallback } from "react";
 import { C, FIXED_EMAIL } from "./config/constants";
-import { PHASE2_PROMPT, buildPhase3Prompt } from "./config/prompts";
+import { buildPhase2Prompt, buildPhase3Prompt } from "./config/prompts";
 import { callClaude, buildRows, buildCSV, toUrl, resizeForEmail } from "./utils/claudeApi";
 import Header      from "./components/Header";
 import StepBar     from "./components/StepBar";
@@ -65,7 +65,7 @@ export default function App() {
     if (!p2imgs.length) return;
     setLoading(true); setLoadMsg("Analizando Packing List...");
     try {
-      const ext = await callClaude(PHASE2_PROMPT, p2imgs, "Extrae toda la información y devuelve el JSON.");
+      const ext = await callClaude(buildPhase2Prompt(tipo), p2imgs, "Extrae toda la información y devuelve el JSON.");
       setExtracted(ext); setRows(buildRows(ext, tipo)); setPhase(3);
     } catch (e) { alert("Error al analizar imágenes: " + e.message); }
     finally { setLoading(false); }
