@@ -11,24 +11,42 @@ export const toB64 = (f) =>
 
 /**
  * Redimensiona una imagen para adjuntar en email (max 1024px, calidad 72%).
+ * Si el canvas falla (ej. HEIC en Chrome) usa los bytes originales como fallback.
  * Devuelve base64 sin prefijo data:...
  */
-export function resizeForEmail(file, maxPx = 1024, quality = 0.72) {
-  return new Promise((resolve) => {
+export async function resizeForEmail(file, maxPx = 1024, quality = 0.72) {
+  // Intentar redimensionar con Canvas
+  const canvasResult = await new Promise((resolve) => {
     const img = new Image();
     const url = URL.createObjectURL(file);
     img.onload = () => {
-      const scale = Math.min(maxPx / img.width, maxPx / img.height, 1);
-      const canvas = document.createElement("canvas");
-      canvas.width  = Math.round(img.width  * scale);
-      canvas.height = Math.round(img.height * scale);
-      canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
       URL.revokeObjectURL(url);
-      resolve(canvas.toDataURL("image/jpeg", quality).split(",")[1]);
+      const w = img.naturalWidth;
+      const h = img.naturalHeight;
+      if (!w || !h) { resolve(null); return; }
+      const scale  = Math.min(maxPx / w, maxPx / h, 1);
+      const canvas = document.createElement("canvas");
+      canvas.width  = Math.round(w * scale);
+      canvas.height = Math.round(h * scale);
+      const ctx = canvas.getContext("2d");
+      ctx.fillStyle = "#FFFFFF";          // fondo blanco para PNGs transparentes
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      const dataUrl = canvas.toDataURL("image/jpeg", quality);
+      const b64 = dataUrl.split(",")[1];
+      // Un canvas en blanco produce un JPEG muy pequeño (~1-2 KB); descartarlo
+      resolve(b64 && b64.length > 3000 ? b64 : null);
     };
     img.onerror = () => { URL.revokeObjectURL(url); resolve(null); };
     img.src = url;
   });
+
+  if (canvasResult) return canvasResult;
+
+  // Fallback: enviar bytes originales si el archivo es pequeño (≤1.5 MB)
+  if (file.size <= 1_500_000) return toB64(file);
+
+  return null; // demasiado grande para enviar sin comprimir
 }
 
 /** Convierte un File a data URL completa (para previsualizaciones) */
