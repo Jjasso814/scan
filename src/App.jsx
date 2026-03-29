@@ -77,7 +77,12 @@ export default function App() {
     try {
       const res = await callClaude(buildPhase3Prompt(tipo, rows), p3imgs, "Analiza este bulto.");
       const newRows = [...rows];
-      const found   = newRows.findIndex((r) => r.no_parte === res.no_parte_detectado);
+      const norm    = (s) => s ? String(s).toLowerCase().replace(/[^a-z0-9]/g, "") : "";
+      const found   = newRows.findIndex((r) => {
+        if (!r.no_parte || !res.no_parte_detectado) return false;
+        const a = norm(r.no_parte), b = norm(res.no_parte_detectado);
+        return a === b || a.includes(b) || b.includes(a);
+      });
       const target  = found !== -1 ? found : bultoIdx;
       const row     = { ...newRows[target], _warnings: [...(newRows[target]._warnings || [])] };
       if (res.cantidad_detectada !== null && res.cantidad_detectada !== row.cantidad) { row.cantidad = res.cantidad_detectada; if (!row._warnings.includes("cantidad")) row._warnings.push("cantidad"); }
