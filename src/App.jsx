@@ -73,26 +73,32 @@ export default function App() {
 
   const runPhase3 = async () => {
     if (!p3imgs.length) return;
-    setLoading(true); setLoadMsg("Verificando bulto " + (bultoIdx + 1) + "...");
-    try {
-      const res = await callClaude(buildPhase3Prompt(tipo, rows), p3imgs, "Analiza este bulto.");
-      const newRows = [...rows];
-      const found   = newRows.findIndex((r) => r.no_parte === res.no_parte_detectado);
-      const target  = found !== -1 ? found : bultoIdx;
-      const row     = { ...newRows[target], _warnings: [...(newRows[target]._warnings || [])] };
-      if (res.cantidad_detectada !== null && res.cantidad_detectada !== row.cantidad) { row.cantidad = res.cantidad_detectada; if (!row._warnings.includes("cantidad")) row._warnings.push("cantidad"); }
-      if (tipo === "maquinaria") { if (res.marca_detectada) row.marca = res.marca_detectada; if (res.modelo_detectado) row.modelo = res.modelo_detectado; if (res.serie_detectada) row.serie = res.serie_detectada; }
-      if (res.observaciones) row.observaciones = res.observaciones;
-      if (res.confianza === "baja" && !row._warnings.includes("no_parte")) row._warnings.push("no_parte");
-      newRows[target] = row;
-      const cantTotal = newRows[0]?._cantTotal;
-      if (cantTotal && newRows.reduce((s, r) => s + (Number(r.cantidad) || 0), 0) === cantTotal)
-        newRows.forEach((r) => { r._warnings = r._warnings?.filter((w) => w !== "cantidad"); });
-      setRows(newRows); setP3imgs([]); setP3prevs([]);
-      calcReconciliation(newRows, extracted);
-      if (bultoIdx < rows.length - 1) setBultoIdx((i) => i + 1); else setPhase(4);
-    } catch (e) { alert("Error al analizar bulto: " + e.message); }
-    finally { setLoading(false); }
+    setLoading(true);
+    const newRows = [...rows];
+    // Procesa cada imagen como un bulto independiente (1 foto = 1 bulto)
+    for (let i = 0; i < p3imgs.length; i++) {
+      setLoadMsg(`Verificando bulto ${i + 1} de ${p3imgs.length}...`);
+      try {
+        const res = await callClaude(buildPhase3Prompt(tipo, newRows), [p3imgs[i]], "Analiza este bulto.");
+        const found  = newRows.findIndex((r) => r.no_parte === res.no_parte_detectado);
+        const target = found !== -1 ? found : Math.min(i, newRows.length - 1);
+        const row    = { ...newRows[target], _warnings: [...(newRows[target]._warnings || [])] };
+        if (res.cantidad_detectada !== null && res.cantidad_detectada !== row.cantidad) { row.cantidad = res.cantidad_detectada; if (!row._warnings.includes("cantidad")) row._warnings.push("cantidad"); }
+        if (tipo === "maquinaria") { if (res.marca_detectada) row.marca = res.marca_detectada; if (res.modelo_detectado) row.modelo = res.modelo_detectado; if (res.serie_detectada) row.serie = res.serie_detectada; }
+        if (res.observaciones) row.observaciones = res.observaciones;
+        if (res.confianza === "baja" && !row._warnings.includes("no_parte")) row._warnings.push("no_parte");
+        newRows[target] = row;
+      } catch (e) {
+        console.error(`Error verificando bulto ${i + 1}:`, e);
+      }
+    }
+    const cantTotal = newRows[0]?._cantTotal;
+    if (cantTotal && newRows.reduce((s, r) => s + (Number(r.cantidad) || 0), 0) === cantTotal)
+      newRows.forEach((r) => { r._warnings = r._warnings?.filter((w) => w !== "cantidad"); });
+    setRows(newRows); setP3imgs([]); setP3prevs([]);
+    calcReconciliation(newRows, extracted);
+    setLoading(false);
+    setPhase(4);
   };
 
   const handleDownload = () => {
