@@ -1,22 +1,29 @@
 // Prompt para la Fase 2: extracción de datos del Packing List y etiqueta de transportista
 export function buildPhase2Prompt(tipo) {
   const esMaq = tipo === "maquinaria";
+
+  const preambulo = esMaq
+    ? `[MODO MAQUINARIA ACTIVADO]
+ANTES de llenar el JSON, lee esto:
+• cantidad = el número al FINAL del nombre del producto (NO el Qty del Packing List).
+  Proceso obligatorio: copia el nombre del producto → ¿termina en número? → usa ese número como cantidad.
+  "PISTON O 10CC WH WIPER 100" → termina en 100 → cantidad=100.
+  "PISTON O 5CC WH WIPER 100"  → termina en 100 → cantidad=100.
+  El "Qty: 1" del Packing List = 1 CAJA. La caja contiene N piezas. N está en el nombre del producto.
+• marca = empresa fabricante sin línea de productos: "Nordson EFD" → "Nordson". Aplica a TODAS las filas.
+
+`
+    : "";
+
   const reglaCantidad = esMaq
-    ? `14) cantidad para MAQUINARIA — REGLA CRÍTICA:
-    El Packing List dice "Qty: 1" porque envía 1 CAJA. Ese "1" es el número de CAJAS, NO de piezas.
-    La cantidad REAL de piezas está en el NOMBRE DEL PRODUCTO o en la etiqueta de la pieza.
-
-    CÓMO ENCONTRAR LA CANTIDAD:
-    a) Busca el último número en el nombre/descripción del producto:
-       "PISTON O 10CC WH WIPER 100" → cantidad=100 (hay 100 piezas en la caja)
-       "VALVE BODY 50"              → cantidad=50
-       "SEAL KIT 25"                → cantidad=25
-    b) Si la etiqueta de la pieza muestra "Qty: 100" → cantidad=100.
-
-    ⛔ INCORRECTO: cantidad=1 porque el Packing List dice "Qty: 1"
-    ✅ CORRECTO:   cantidad=100 porque el nombre dice "WIPER 100"
-
-    Si no encuentras cantidad en nombre ni etiqueta, pon ⚠️ y usa el valor del Packing List.`
+    ? `14) cantidad para MAQUINARIA — proceso paso a paso:
+    PASO 1: Lee el nombre completo del producto (descripcion_ingles).
+    PASO 2: ¿Termina en un número? → ese número ES la cantidad. Escríbelo en cantidad.
+            "PISTON O 10CC WH WIPER 100" → cantidad=100
+            "VALVE BODY 50"              → cantidad=50
+    PASO 3: Si no termina en número, busca "Qty:" en la etiqueta de la PIEZA (no del Packing List).
+    PASO 4: Solo si no encontraste nada en PASO 2 ni PASO 3, usa el Packing List y pon ⚠️.
+    ⛔ NUNCA pongas cantidad=1 si el nombre del producto termina en un número mayor.`
     : `14) cantidad para MATERIA PRIMA — fuente prioritaria: el Packing List / Packing Slip.
     a) PRIMERO: usa la cantidad TOTAL del Packing List para cada número de parte.
        Ej: packing list dice "Qty: 600" → cantidad=600, aunque cada bolsa individual diga "Qty: 100".
@@ -24,7 +31,7 @@ export function buildPhase2Prompt(tipo) {
     c) TERCERO: si solo hay etiquetas individuales, suma las cantidades de todas las bolsas/piezas.
     NUNCA uses la qty de una sola bolsa si el packing list indica un total mayor.`;
 
-  return `Eres experto en documentos logísticos. Analiza TODAS las imágenes \
+  return `${preambulo}Eres experto en documentos logísticos. Analiza TODAS las imágenes \
 (Packing Lists, etiquetas de transportista y etiquetas de producto) y devuelve SOLO este JSON sin texto extra ni markdown:
 {"vendor":null,"po":null,"referencia":null,"importador":null,"origen":null,"carrier":null,"tracking":null,\
 "bultos_total":1,"peso_lbs":null,"peso_kgs":null,"tipo_bulto":null,\
@@ -41,20 +48,19 @@ REGLAS:
 7) tipo_bulto: usa SOLO estas abreviaturas: BX=caja/box, TA=tarima/pallet, BU=bulto/bundle, TU=tubo/tube.
 8) origen: USA SIEMPRE código ISO-2. Si ves "COO: US", "Made in USA", una ciudad americana o estado como "CA 90670" → "US".
    NUNCA pongas la dirección completa. Solo el código de 2 letras: MX, US, CN, CA, DE, JP, etc.
-9) descripcion: OBLIGATORIO en español. Si el texto está en inglés, tradúcelo. NUNCA dejes null si tienes descripción.
-   NO incluyas el número de piezas al final — solo describe el artículo.
-   Ej: "PISTON O 5CC WH WIPER 100" → "Pistón O 5CC con limpiador blanco" (sin "100 piezas").
-10) descripcion_ingles: OBLIGATORIO en inglés. Si el texto está en español, tradúcelo. NUNCA dejes null si tienes descripción.
-    NO incluyas el número de piezas al final — solo describe el artículo.
+9) descripcion: OBLIGATORIO en español. Traduce el nombre del artículo. NUNCA dejes null si tienes descripción.
+   NO incluyas el número de piezas al final. Ej: "PISTON O 5CC WH WIPER 100" → "Pistón O 5CC con limpiador blanco".
+10) descripcion_ingles: OBLIGATORIO en inglés. NUNCA dejes null si tienes descripción.
+    NO incluyas el número de piezas al final. Ej: "PISTON O 5CC WH WIPER 100" → "Piston O 5CC with white wiper".
 11) serie: busca en TODAS las imágenes los campos "Lot/SN", "Lot", "S/N", "Serial", "Lote".
     El número DESPUÉS de esas etiquetas ES el número de serie.
-    ⛔ INCORRECTO: serie=null cuando "Lot/SN: 40048850164" es visible.
+    ⛔ INCORRECTO: serie=null cuando "Lot/SN: 40048850164" es visible en alguna imagen.
     ✅ CORRECTO:   serie="40048850164".
     Asigna el Lot/SN correcto a cada no_parte según qué etiqueta corresponde a qué parte.
-12) marca y modelo — regla estricta para TODAS las filas sin excepción:
-    marca: SOLO el nombre de la empresa fabricante. NUNCA incluyas la línea de productos.
-    ⛔ INCORRECTO: marca="Nordson EFD"    ✅ CORRECTO: marca="Nordson"
-    ⛔ INCORRECTO: marca="Parker Hannifin Corp"  ✅ CORRECTO: marca="Parker"
+12) marca y modelo — aplica a TODAS las filas sin excepción:
+    marca: SOLO empresa fabricante. Elimina líneas de producto, divisiones y sufijos corporativos.
+    ⛔ INCORRECTO: "Nordson EFD", "Parker Hannifin Corp", "3M Company"
+    ✅ CORRECTO:   "Nordson",     "Parker",               "3M"
     modelo: nombre específico del producto. "EFD" es línea de producto, NO es modelo.
     ⛔ INCORRECTO: modelo="EFD"    ✅ CORRECTO: modelo="Optimum"
 13) po vs referencia — campos DISTINTOS:
@@ -64,7 +70,9 @@ REGLAS:
       "Delivery Note", "Invoice No.". Ej: "Order Number: P159308" → referencia="P159308".
 ${reglaCantidad}
 15) tracking — cuenta los caracteres:
-    - UPS: empieza con "1Z", exactamente 18 caracteres. Ej: "1ZY861480357175943".
+    - UPS: empieza con "1Z", exactamente 18 caracteres. Solo dígitos y letras mayúsculas (0-9, A-Z).
+      IMPORTANTE: la letra "O" en tracking UPS suele ser el número "0". Lee con cuidado.
+      Ej correcto: "1ZY861480357175943". Elimina espacios.
     - FedEx: 12 dígitos. Ej: "418381345270". Elimina espacios al escribir el tracking.
 16) no_parte con fracciones — lee con cuidado:
     5/8 ≠ 3/8, 6 ≠ 9, 3 ≠ 8, M ≠ W, 0 ≠ O, 1 ≠ I.
@@ -86,8 +94,8 @@ export function buildPhase3Prompt(tipo, rows) {
     ? ',"marca_detectada":null,"modelo_detectado":null,"serie_detectada":null'
     : "";
   const cantNote = tipo === "maquinaria"
-    ? `cantidad_detectada: busca el número al final del nombre del producto (Ej: "WIPER 100" → 100).
-Si no hay número en el nombre, busca "Qty:" en la etiqueta de la pieza. IGNORA el Qty del Packing List.`
+    ? `cantidad_detectada: busca el número al FINAL del nombre del producto visible en la imagen.
+"PISTON O 10CC WH WIPER 100" → cantidad_detectada=100. IGNORA el Qty del Packing List.`
     : "cantidad_detectada = número de unidades visibles en la imagen.";
   const lineas = JSON.stringify(rows.map(r => ({ no_parte: r.no_parte, cantidad: r.cantidad })));
   return `Eres experto en verificación de material logístico. Analiza las imágenes de UN SOLO BULTO.
@@ -97,6 +105,6 @@ Líneas registradas: ${lineas}
 REGLAS: Solo JSON. null si no puedes leer. Prefija con ⚠️ si tienes duda.
 ${cantNote}
 observaciones: USA EXACTAMENTE una de estas frases (puedes combinar con " / "):
-"BUENAS CONDICIONES", "CAJA DAÑADA", "FALTAN PIEZAS", "INCOMPLETO", "SIN PACKING LIST".
-⛔ NO uses otras frases ni texto libre en observaciones.`;
+"BUENAS CONDICIONES" | "CAJA DAÑADA" | "FALTAN PIEZAS" | "INCOMPLETO" | "SIN PACKING LIST"
+⛔ PROHIBIDO escribir cualquier otra frase o texto libre en observaciones.`;
 }

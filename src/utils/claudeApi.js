@@ -70,6 +70,21 @@ function stripWarnAll(v) {
   return String(v).replace(/⚠️\s*/g, "").trim();
 }
 
+/**
+ * Normaliza un número de tracking: elimina ⚠️, espacios y corrige OCR común.
+ * Para UPS (1Z + 16 chars): reemplaza letra O por 0 y letra I por 1 en las posiciones numéricas.
+ */
+function normalizeTracking(v) {
+  if (!v) return v;
+  let t = stripWarnAll(v).replace(/\s+/g, "").toUpperCase();
+  // Corrección OCR para UPS: después del prefijo "1Z", O→0 e I→1 en posiciones que deben ser dígitos
+  if (t.startsWith("1Z") && t.length === 18) {
+    const suffix = t.slice(2).replace(/O/g, "0").replace(/I/g, "1");
+    t = "1Z" + suffix;
+  }
+  return t;
+}
+
 /** Normaliza el nombre del transportista: solo la marca principal */
 function normalizeCarrier(v) {
   if (!v) return v;
@@ -182,7 +197,7 @@ export function buildRows(ext, tipo) {
     peso_lbs: ext.peso_lbs, peso_kgs: ext.peso_kgs,
     tipo_bulto: normalizeTipoBulto(ext.tipo_bulto), valor: null,
     origen: normalizeOrigen(ext.origen),
-    fraccion: null, locacion: null, tracking: stripWarnAll(ext.tracking),
+    fraccion: null, locacion: null, tracking: normalizeTracking(ext.tracking),
     marca: null, modelo: null, serie: null, observaciones: null,
   };
 
