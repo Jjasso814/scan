@@ -136,8 +136,15 @@ export default function App() {
       const fecha = now.toLocaleDateString("es-MX");
       const hora  = now.toTimeString().slice(0, 8).replace(/:/g, "-");
 
-      // Redimensionar imágenes a máx 1024px antes de enviar
-      const resized = (await Promise.all(allImgs.map((f) => resizeForEmail(f)))).filter(Boolean);
+      // Calidad dinámica según número de imágenes para respetar límite de email
+      const imgCount = allImgs.length;
+      let emailMaxPx, emailQuality;
+      if      (imgCount <= 3)  { emailMaxPx = 1600; emailQuality = 0.85; }
+      else if (imgCount <= 6)  { emailMaxPx = 1400; emailQuality = 0.80; }
+      else if (imgCount <= 10) { emailMaxPx = 1200; emailQuality = 0.75; }
+      else                     { emailMaxPx = 1024; emailQuality = 0.70; }
+
+      const resized = (await Promise.all(allImgs.map((f) => resizeForEmail(f, emailMaxPx, emailQuality)))).filter(Boolean);
 
       setLoadMsg("Enviando correo con adjuntos...");
 

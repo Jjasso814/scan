@@ -10,11 +10,11 @@ export const toB64 = (f) =>
   });
 
 /**
- * Redimensiona una imagen para adjuntar en email (max 1024px, calidad 72%).
+ * Redimensiona una imagen para adjuntar en email (max 1600px, calidad 85%).
  * Si el canvas falla (ej. HEIC en Chrome) usa los bytes originales como fallback.
  * Devuelve base64 sin prefijo data:...
  */
-export async function resizeForEmail(file, maxPx = 1024, quality = 0.72) {
+export async function resizeForEmail(file, maxPx = 1600, quality = 0.85) {
   // Intentar redimensionar con Canvas
   const canvasResult = await new Promise((resolve) => {
     const img = new Image();
@@ -43,8 +43,8 @@ export async function resizeForEmail(file, maxPx = 1024, quality = 0.72) {
 
   if (canvasResult) return canvasResult;
 
-  // Fallback: enviar bytes originales si el archivo es pequeño (≤1.5 MB)
-  if (file.size <= 1_500_000) return toB64(file);
+  // Fallback: enviar bytes originales si el archivo es pequeño (≤2.5 MB)
+  if (file.size <= 2_500_000) return toB64(file);
 
   return null; // demasiado grande para enviar sin comprimir
 }
@@ -64,19 +64,26 @@ export const toUrl = (f) =>
 
 /**
  * Prepara una imagen para enviar a la API de Claude:
- * - Convierte a JPEG con canvas (resuelve HEIC, PNG, WEBP, etc.)
- * - Reduce resolución a máx 1600px para no saturar la memoria en móvil
+ * - Si ya cabe (≤2048px), envía los bytes originales sin re-codificar (evita doble compresión)
+ * - Si es más grande, reduce a 2048px con calidad 92% JPEG
  * - Fallback a base64 original si el canvas falla
  */
 async function prepareForApi(file) {
-  const canvasB64 = await new Promise((resolve) => {
+  const MAX_PX = 2048;
+  const QUALITY = 0.92;
+
+  const result = await new Promise((resolve) => {
     const img = new Image();
     const url = URL.createObjectURL(file);
     img.onload = () => {
       URL.revokeObjectURL(url);
       const w = img.naturalWidth, h = img.naturalHeight;
       if (!w || !h) { resolve(null); return; }
-      const scale  = Math.min(1600 / w, 1600 / h, 1);
+
+      // Si la imagen ya cabe en el límite, no re-codificar (evita artefactos por doble compresión)
+      if (w <= MAX_PX && h <= MAX_PX) { resolve("SKIP"); return; }
+
+      const scale  = Math.min(MAX_PX / w, MAX_PX / h, 1);
       const canvas = document.createElement("canvas");
       canvas.width  = Math.round(w * scale);
       canvas.height = Math.round(h * scale);
@@ -84,15 +91,42 @@ async function prepareForApi(file) {
       ctx.fillStyle = "#FFFFFF";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-      const b64 = canvas.toDataURL("image/jpeg", 0.88).split(",")[1];
+      const b64 = canvas.toDataURL("image/jpeg", QUALITY).split(",")[1];
       resolve(b64 && b64.length > 1000 ? b64 : null);
     };
     img.onerror = () => { URL.revokeObjectURL(url); resolve(null); };
     img.src = url;
   });
-  if (canvasB64) return { b64: canvasB64, mediaType: "image/jpeg" };
-  // Fallback: bytes originales (solo si el archivo es pequeño)
-  if (file.size <= 5_000_000) return { b64: await toB64(file), mediaType: file.type || "image/jpeg" };
+
+  // Imagen ya cabe — enviar bytes originales sin re-comprimir
+  if (result === "SKIP") {
+    if (file.size <= 8_000_000) return { b64: await toB64(file), mediaType: file.type || "image/jpeg" };
+    // Dimensiones OK pero archivo muy grande (HEIC/RAW) — comprimir igual
+    // Forzar canvas ignorando el skip
+    const canvasB64 = await new Promise((resolve) => {
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        const w = img.naturalWidth, h = img.naturalHeight;
+        const canvas = document.createElement("canvas");
+        canvas.width = w; canvas.height = h;
+        const ctx = canvas.getContext("2d");
+        ctx.fillStyle = "#FFFFFF";
+        ctx.fillRect(0, 0, w, h);
+        ctx.drawImage(img, 0, 0, w, h);
+        const b64 = canvas.toDataURL("image/jpeg", QUALITY).split(",")[1];
+        resolve(b64 && b64.length > 1000 ? b64 : null);
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); resolve(null); };
+      img.src = url;
+    });
+    if (canvasB64) return { b64: canvasB64, mediaType: "image/jpeg" };
+  }
+
+  if (result) return { b64: result, mediaType: "image/jpeg" };
+  // Fallback: bytes originales si el archivo es pequeño
+  if (file.size <= 8_000_000) return { b64: await toB64(file), mediaType: file.type || "image/jpeg" };
   return null;
 }
 
