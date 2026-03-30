@@ -25,11 +25,11 @@ ANTES de llenar el JSON, lee esto:
     PASO 4: Solo si no encontraste nada en PASO 2 ni PASO 3, usa el Packing List y pon ⚠️.
     ⛔ NUNCA pongas cantidad=1 si el nombre del producto termina en un número mayor.`
     : `14) cantidad para MATERIA PRIMA — fuente prioritaria: el Packing List / Packing Slip.
-    a) PRIMERO: usa la cantidad TOTAL del Packing List para cada número de parte.
-       Ej: packing list dice "Qty: 600" → cantidad=600, aunque cada bolsa individual diga "Qty: 100".
+    a) PRIMERO: usa la cantidad indicada en CADA packing list por separado.
+       Si hay DOS packing lists → DOS entradas con la cantidad de cada uno.
+       ⛔ NUNCA sumes las cantidades de dos packing lists distintos en una sola entrada.
     b) SEGUNDO: si no hay packing list, usa la cantidad de la etiqueta del transportista.
-    c) TERCERO: si solo hay etiquetas individuales, suma las cantidades de todas las bolsas/piezas.
-    NUNCA uses la qty de una sola bolsa si el packing list indica un total mayor.`;
+    c) TERCERO: si solo hay etiquetas individuales sin packing list, usa la cantidad de cada etiqueta.`;
 
   return `${preambulo}Eres experto en documentos logísticos. Analiza TODAS las imágenes \
 (Packing Lists, etiquetas de transportista y etiquetas de producto) y devuelve SOLO este JSON sin texto extra ni markdown:
@@ -39,7 +39,10 @@ ANTES de llenar el JSON, lee esto:
 "cantidad":null,"um":null,"valor":null,"fraccion":null,"marca":null,"modelo":null,"serie":null}]}
 REGLAS:
 1) Solo JSON, sin markdown.
-2) Una entrada en partes por cada número de parte distinto en el Packing List.
+2) Una entrada en partes por cada DOCUMENTO (Packing List / Packing Slip) recibido.
+   Si hay DOS packing lists con el mismo número de parte → crea DOS entradas separadas, cada una con su propia cantidad.
+   ⛔ NUNCA combines ni sumes cantidades de dos documentos distintos en una sola entrada.
+   Cada packing list o bolsa con su propio documento = su propia fila independiente.
 3) null si no aparece el dato.
 4) Prefija con "⚠️ " SOLO si tienes duda sobre un valor específico.
 5) bultos_total: si ves "1 of 3" o "Pkg 1/3" → el total es 3.
