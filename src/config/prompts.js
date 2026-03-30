@@ -39,10 +39,11 @@ ANTES de llenar el JSON, lee esto:
 "cantidad":null,"um":null,"valor":null,"fraccion":null,"marca":null,"modelo":null,"serie":null}]}
 REGLAS:
 1) Solo JSON, sin markdown.
-2) Una entrada en partes por cada DOCUMENTO (Packing List / Packing Slip) recibido.
-   Si hay DOS packing lists con el mismo número de parte → crea DOS entradas separadas, cada una con su propia cantidad.
+2) Una entrada en partes por cada número de parte POR DOCUMENTO (Packing List / Packing Slip).
+   - Si un packing list tiene 3 números de parte distintos → 3 entradas.
+   - Si hay DOS packing lists distintos y ambos tienen el mismo número de parte → 2 entradas separadas (una por documento), cada una con la cantidad indicada en su propio documento.
    ⛔ NUNCA combines ni sumes cantidades de dos documentos distintos en una sola entrada.
-   Cada packing list o bolsa con su propio documento = su propia fila independiente.
+   Regla: mismo documento + mismo no_parte = 1 entrada. Distinto documento = siempre entrada nueva.
 3) null si no aparece el dato.
 4) Prefija con "⚠️ " SOLO si tienes duda sobre un valor específico.
 5) bultos_total: si ves "1 of 3" o "Pkg 1/3" → el total es 3.
