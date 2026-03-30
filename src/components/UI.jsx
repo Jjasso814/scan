@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { C } from "../config/constants";
-import { toUrl } from "../utils/claudeApi";
 
 // ── Contenedor con sombra ──────────────────────────────────────────────────────
 export function Card({ children, style = {} }) {
@@ -96,8 +95,9 @@ export function DropZone({ onFiles, label, sublabel }) {
           🗂️ Desde galería
         </button>
       </div>
-      <input id={idCaptura} type="file" accept="image/*" capture="environment" multiple
-        style={{ display: "none" }} onChange={(e) => onFiles(Array.from(e.target.files))} />
+      {/* capture sin multiple: en iOS solo permite 1 foto por toma — el usuario presiona el botón varias veces */}
+      <input id={idCaptura} type="file" accept="image/*" capture="environment"
+        style={{ display: "none" }} onChange={(e) => { onFiles(Array.from(e.target.files)); e.target.value = ""; }} />
     </div>
   );
 }

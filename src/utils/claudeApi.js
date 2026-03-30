@@ -51,12 +51,50 @@ export async function resizeForEmail(file, maxPx = 1024, quality = 0.72) {
 
 /** Convierte un File a data URL completa (para previsualizaciones) */
 export const toUrl = (f) =>
-  new Promise((res, rej) => {
-    const r = new FileReader();
-    r.onload  = () => res(r.result);
-    r.onerror = rej;
-    r.readAsDataURL(f);
+  new Promise((res) => {
+    // Usar createObjectURL en lugar de FileReader — más rápido y no falla con HEIC en móvil
+    try { res(URL.createObjectURL(f)); }
+    catch (_) {
+      const r = new FileReader();
+      r.onload  = () => res(r.result);
+      r.onerror = () => res(null);
+      r.readAsDataURL(f);
+    }
   });
+
+/**
+ * Prepara una imagen para enviar a la API de Claude:
+ * - Convierte a JPEG con canvas (resuelve HEIC, PNG, WEBP, etc.)
+ * - Reduce resolución a máx 1600px para no saturar la memoria en móvil
+ * - Fallback a base64 original si el canvas falla
+ */
+async function prepareForApi(file) {
+  const canvasB64 = await new Promise((resolve) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const w = img.naturalWidth, h = img.naturalHeight;
+      if (!w || !h) { resolve(null); return; }
+      const scale  = Math.min(1600 / w, 1600 / h, 1);
+      const canvas = document.createElement("canvas");
+      canvas.width  = Math.round(w * scale);
+      canvas.height = Math.round(h * scale);
+      const ctx = canvas.getContext("2d");
+      ctx.fillStyle = "#FFFFFF";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      const b64 = canvas.toDataURL("image/jpeg", 0.88).split(",")[1];
+      resolve(b64 && b64.length > 1000 ? b64 : null);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); resolve(null); };
+    img.src = url;
+  });
+  if (canvasB64) return { b64: canvasB64, mediaType: "image/jpeg" };
+  // Fallback: bytes originales (solo si el archivo es pequeño)
+  if (file.size <= 5_000_000) return { b64: await toB64(file), mediaType: file.type || "image/jpeg" };
+  return null;
+}
 
 /** Quita el prefijo "⚠️ " al inicio de un valor */
 function stripWarn(v) {
@@ -145,12 +183,13 @@ function normalizeOrigen(v) {
  * Requiere que el usuario haya guardado su contraseña en sessionStorage["app_pwd"].
  */
 export async function callClaude(system, images, text) {
-  const imgs = await Promise.all(
-    images.map(async (f) => ({
-      type: "image",
-      source: { type: "base64", media_type: f.type, data: await toB64(f) },
-    }))
-  );
+  const imgs = (await Promise.all(
+    images.map(async (f) => {
+      const prepared = await prepareForApi(f);
+      if (!prepared) return null; // imagen inválida o demasiado grande
+      return { type: "image", source: { type: "base64", media_type: prepared.mediaType, data: prepared.b64 } };
+    })
+  )).filter(Boolean);
 
   const pwd = sessionStorage.getItem("app_pwd") || "";
   const authHeader = pwd ? "Basic " + btoa("user:" + pwd) : "";
