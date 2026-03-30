@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { C } from "../../config/constants";
 import { Card, PrimaryBtn, GhostBtn } from "../UI";
 import ResultTable from "../ResultTable";
@@ -31,7 +32,8 @@ function ReconciliationCard({ reconciliation }) {
   );
 }
 
-export default function Phase4({ rows, setRows, tipo, reconciliation, emailMsg, onDownload, onEmail, onReset }) {
+export default function Phase4({ rows, setRows, tipo, reconciliation, emailMsg, onDownload, onEmail, onReset, defaultEmail }) {
+  const [emailTo, setEmailTo] = useState(defaultEmail || "");
   const hasWarnings = rows.some((r) => r._warnings?.length > 0);
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
@@ -60,9 +62,24 @@ export default function Phase4({ rows, setRows, tipo, reconciliation, emailMsg, 
 
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         <PrimaryBtn onClick={onDownload}>⬇️ Descargar CSV</PrimaryBtn>
-        <button onClick={onEmail} style={{ background: C.orange, color: C.white, border: "none", borderRadius: 10, padding: "13px 22px", fontSize: 14, fontWeight: 700, cursor: "pointer", width: "100%" }}>
-          📧 Descargar CSV y enviar correo
-        </button>
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          <label style={{ fontSize: 12, color: C.muted, fontWeight: 600 }}>
+            Destinatario(s) — separa varios correos con coma
+          </label>
+          <input
+            type="text"
+            value={emailTo}
+            onChange={(e) => setEmailTo(e.target.value)}
+            placeholder="correo1@empresa.com, correo2@empresa.com"
+            style={{ border: "1px solid " + C.border, borderRadius: 8, padding: "9px 12px", fontSize: 13, color: C.text, width: "100%", boxSizing: "border-box" }}
+          />
+          <button
+            onClick={() => onEmail(emailTo)}
+            disabled={!emailTo.trim()}
+            style={{ background: emailTo.trim() ? C.orange : "#ccc", color: C.white, border: "none", borderRadius: 10, padding: "13px 22px", fontSize: 14, fontWeight: 700, cursor: emailTo.trim() ? "pointer" : "default", width: "100%" }}>
+            📧 Descargar CSV y enviar correo
+          </button>
+        </div>
         <GhostBtn onClick={onReset}>🔄 Nueva inspección</GhostBtn>
       </div>
 

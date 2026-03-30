@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import { C, FIXED_EMAIL } from "./config/constants";
+import { C, FIXED_EMAIL } from "./config/constants"; // FIXED_EMAIL se pasa como defaultEmail a Phase4
 import { buildPhase2Prompt, buildPhase3Prompt } from "./config/prompts";
 import { callClaude, buildRows, buildCSV, toUrl, resizeForEmail } from "./utils/claudeApi";
 import Header      from "./components/Header";
@@ -127,7 +127,7 @@ export default function App() {
     URL.revokeObjectURL(url);
   };
 
-  const handleEmail = async () => {
+  const handleEmail = async (emailTo) => {
     handleDownload(); // descarga el CSV automáticamente
 
     setLoading(true); setLoadMsg("Comprimiendo imágenes...");
@@ -173,7 +173,7 @@ export default function App() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          to: FIXED_EMAIL,
+          to: emailTo,
           subject: "IDEAScan — Inspección " + fecha,
           text,
           csvData: buildCSV(rows),
@@ -186,7 +186,7 @@ export default function App() {
         const err = await resp.json().catch(() => ({}));
         throw new Error(err.error || "Error del servidor " + resp.status);
       }
-      setEmailMsg("✅ CSV e imágenes enviados a " + FIXED_EMAIL);
+      setEmailMsg("✅ CSV e imágenes enviados a " + emailTo);
     } catch (e) {
       setEmailMsg("❌ Error al enviar: " + e.message);
     } finally {
@@ -242,6 +242,7 @@ export default function App() {
             rows={rows} setRows={setRows} tipo={tipo}
             reconciliation={reconciliation} emailMsg={emailMsg}
             onDownload={handleDownload} onEmail={handleEmail} onReset={reset}
+            defaultEmail={FIXED_EMAIL}
           />
         )}
 
