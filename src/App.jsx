@@ -137,7 +137,7 @@ export default function App() {
       const hora  = now.toTimeString().slice(0, 8).replace(/:/g, "-");
 
       // Redimensionar imágenes a máx 1024px antes de enviar
-      const resized = (await Promise.all(allImgs.map(resizeForEmail))).filter(Boolean);
+      const resized = (await Promise.all(allImgs.map((f) => resizeForEmail(f)))).filter(Boolean);
 
       setLoadMsg("Enviando correo con adjuntos...");
 
