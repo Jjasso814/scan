@@ -34,7 +34,7 @@ ANTES de llenar el JSON, lee esto:
   return `${preambulo}Eres experto en documentos logísticos. Analiza TODAS las imágenes \
 (Packing Lists, etiquetas de transportista y etiquetas de producto) y devuelve SOLO este JSON sin texto extra ni markdown:
 {"vendor":null,"po":null,"referencia":null,"importador":null,"origen":null,"carrier":null,"tracking":null,\
-"bultos_total":1,"peso_lbs":null,"peso_kgs":null,"tipo_bulto":null,\
+"bultos_total":1,"peso_lbs":null,"peso_kgs":null,"tipo_bulto":null,"calidad_imagenes":"buena",\
 "partes":[{"no_parte":null,"descripcion":null,"descripcion_ingles":null,\
 "cantidad":null,"um":null,"valor":null,"fraccion":null,"marca":null,"modelo":null,"serie":null}]}
 REGLAS:
@@ -86,7 +86,11 @@ ${reglaCantidad}
     5/8 ≠ 3/8, 6 ≠ 9, 3 ≠ 8, M ≠ W, 0 ≠ O, 1 ≠ I.
     Si el no_parte aparece en varias etiquetas, usa el valor que más se repite.
 17) descripcion: describe el artículo sin repetir el no_parte completo.
-    Ej: "1 1/2 40.010 SS Circle" → "Círculo de acero inoxidable 1½ pulgada malla 40.010"`;
+    Ej: "1 1/2 40.010 SS Circle" → "Círculo de acero inoxidable 1½ pulgada malla 40.010"
+18) calidad_imagenes: evalúa la nitidez general de TODAS las imágenes recibidas.
+    "buena"     = todo el texto es legible, sin dudas importantes.
+    "aceptable" = la mayoría legible pero 1-2 campos son inciertos.
+    "mala"      = múltiples campos ilegibles por imágenes borrosas, oscuras o fuera de foco.`;
 }
 
 // Compatibilidad: exportar el prompt base sin tipo (usa materia_prima por defecto)

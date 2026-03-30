@@ -28,6 +28,7 @@ export default function App() {
   const [loadMsg, setLoadMsg]               = useState("");
   const [emailMsg, setEmailMsg]             = useState("");
   const [allImgs, setAllImgs]               = useState([]);
+  const [imgWarning, setImgWarning]         = useState(null); // {calidad, campos}
 
   if (!authed) return <LoginScreen onAuth={() => setAuthed(true)} />;
 
@@ -49,7 +50,7 @@ export default function App() {
     setP3imgs([]); setP3prevs([]);
     setRows([]); setBultoIdx(0);
     setExtracted(null); setReconciliation(null);
-    setEmailMsg(""); setAllImgs([]);
+    setEmailMsg(""); setAllImgs([]); setImgWarning(null);
   };
 
   const calcReconciliation = (finalRows, ext) => {
@@ -63,10 +64,27 @@ export default function App() {
 
   const runPhase2 = async () => {
     if (!p2imgs.length) return;
+    setImgWarning(null);
     setLoading(true); setLoadMsg("Analizando Packing List...");
     try {
-      const ext = await callClaude(buildPhase2Prompt(tipo), p2imgs, "Extrae toda la información y devuelve el JSON.");
-      setExtracted(ext); setRows(buildRows(ext, tipo)); setPhase(3);
+      const ext  = await callClaude(buildPhase2Prompt(tipo), p2imgs, "Extrae toda la información y devuelve el JSON.");
+      const built = buildRows(ext, tipo);
+      setExtracted(ext); setRows(built);
+
+      // Detectar calidad de imágenes: calidad "mala" o más de 2 campos con ⚠️
+      const calidad = ext.calidad_imagenes || "buena";
+      const camposConDuda = built.flatMap(r =>
+        Object.entries(r)
+          .filter(([, v]) => typeof v === "string" && v.includes("⚠️"))
+          .map(([k]) => k)
+      );
+      const uniqueCampos = [...new Set(camposConDuda)];
+      if (calidad === "mala" || uniqueCampos.length > 2) {
+        setImgWarning({ calidad, campos: uniqueCampos });
+        // No avanza a Phase 3 — espera a que el usuario decida
+      } else {
+        setPhase(3);
+      }
     } catch (e) { alert("Error al analizar imágenes: " + e.message); }
     finally { setLoading(false); }
   };
@@ -202,6 +220,8 @@ export default function App() {
             onAnalyze={runPhase2}
             onSkip={() => { setRows([]); setPhase(4); }}
             onBack={() => { setTipo(null); setP2imgs([]); setP2prevs([]); setPhase(1); }}
+            imgWarning={imgWarning}
+            onContinueAnyway={() => { setImgWarning(null); setPhase(3); }}
           />
         )}
 
