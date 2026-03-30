@@ -32,8 +32,17 @@ function ReconciliationCard({ reconciliation }) {
   );
 }
 
+const LS_KEY = "ideascan_email_to";
+
 export default function Phase4({ rows, setRows, tipo, reconciliation, emailMsg, onDownload, onEmail, onReset, defaultEmail }) {
-  const [emailTo, setEmailTo] = useState(defaultEmail || "");
+  const [emailTo, setEmailTo] = useState(
+    () => localStorage.getItem(LS_KEY) || defaultEmail || ""
+  );
+
+  const handleEmailChange = (val) => {
+    setEmailTo(val);
+    localStorage.setItem(LS_KEY, val);
+  };
   const hasWarnings = rows.some((r) => r._warnings?.length > 0);
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
@@ -69,7 +78,7 @@ export default function Phase4({ rows, setRows, tipo, reconciliation, emailMsg, 
           <input
             type="text"
             value={emailTo}
-            onChange={(e) => setEmailTo(e.target.value)}
+            onChange={(e) => handleEmailChange(e.target.value)}
             placeholder="correo1@empresa.com, correo2@empresa.com"
             style={{ border: "1px solid " + C.border, borderRadius: 8, padding: "9px 12px", fontSize: 13, color: C.text, width: "100%", boxSizing: "border-box" }}
           />
