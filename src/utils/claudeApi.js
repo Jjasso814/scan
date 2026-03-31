@@ -1,4 +1,5 @@
-import { COL_KEYS, COLUMNS } from "../config/constants";
+import * as XLSX from "xlsx";
+import { XLSX_HEADERS, xlsxRowValues } from "../config/constants";
 
 /** Convierte un File a base64 (solo los datos, sin el prefijo data:...) */
 export const toB64 = (f) =>
@@ -327,16 +328,38 @@ export function buildRows(ext, tipo) {
   return rows;
 }
 
-/** Genera el contenido CSV con BOM UTF-8 */
-export function buildCSV(rows) {
-  const header = COLUMNS.join(",");
-  const body   = rows
-    .map((r) =>
-      COL_KEYS.map((k) => {
-        const v = r[k];
-        return v == null ? "" : `"${String(v).replace(/"/g, '""')}"`;
-      }).join(",")
-    )
-    .join("\n");
-  return "\uFEFF" + header + "\n" + body;
+/**
+ * Genera un archivo XLSX con las columnas del formato de recepción.
+ * @param {Array} rows - Filas normalizadas
+ * @param {"base64"|"array"} [outputType="base64"] - "base64" para email, "array" para descarga
+ * @returns {string|Uint8Array}
+ */
+export function buildXLSX(rows, outputType = "base64") {
+  const wsData = [XLSX_HEADERS, ...rows.map(xlsxRowValues)];
+  const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+  // Ancho de columnas aproximado (caracteres)
+  ws["!cols"] = [
+    { wch: 18 }, // NUMERO DE PARTE
+    { wch: 10 }, // CANTIDAD
+    { wch: 18 }, // CANTIDAD DE BULTOS
+    { wch: 12 }, // TIPO DE BULTO
+    { wch: 15 }, // DOCUMENTO SAP
+    { wch: 11 }, // ID DE BULTO
+    { wch: 12 }, // UBICACION
+    { wch: 8  }, // FILA
+    { wch: 12 }, // PO #
+    { wch: 20 }, // TRACKING
+    { wch: 20 }, // OBS
+    { wch: 9  }, // P1(KG)
+    { wch: 10 }, // PESO LBS
+    { wch: 8  }, // ORIGEN
+    { wch: 14 }, // MARCA
+    { wch: 14 }, // MODELO
+    { wch: 16 }, // SERIE
+  ];
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Recepcion");
+  return XLSX.write(wb, { bookType: "xlsx", type: outputType });
 }

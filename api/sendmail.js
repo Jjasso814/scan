@@ -18,18 +18,18 @@ export default async function handler(req, res) {
     });
   }
 
-  const { to, subject, text, csvData, csvFilename, images } = req.body || {};
-  if (!csvData) return res.status(400).json({ error: "csvData requerido" });
+  const { to, subject, text, xlsxData, xlsxFilename, images } = req.body || {};
+  if (!xlsxData) return res.status(400).json({ error: "xlsxData requerido" });
 
-  // Adjuntar CSV
+  // Adjuntar XLSX
   const attachments = [{
-    filename: csvFilename || "IDEAScan.csv",
-    content: Buffer.from(csvData, "utf8"),
-    contentType: "text/csv; charset=utf-8",
+    filename: xlsxFilename || "IDEAScan.xlsx",
+    content: Buffer.from(xlsxData, "base64"),
+    contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   }];
 
   // Adjuntar imágenes: ordenar por tamaño ascendente para incluir la mayor cantidad posible
-  let bytesUsados = Buffer.byteLength(csvData, "utf8");
+  let bytesUsados = Buffer.from(xlsxData, "base64").length;
   let imagenesAdjuntadas = 0;
   if (images && images.length > 0) {
     // Construir buffers con índice original para reordenar después

@@ -1,7 +1,7 @@
 import { useState, useCallback } from "react";
 import { C, FIXED_EMAIL } from "./config/constants"; // FIXED_EMAIL se pasa como defaultEmail a Phase4
 import { buildPhase2Prompt, buildPhase3Prompt } from "./config/prompts";
-import { callClaude, buildRows, buildCSV, toUrl, resizeForEmail } from "./utils/claudeApi";
+import { callClaude, buildRows, buildXLSX, toUrl, resizeForEmail } from "./utils/claudeApi";
 import Header      from "./components/Header";
 import StepBar     from "./components/StepBar";
 import LoginScreen from "./components/LoginScreen";
@@ -122,8 +122,9 @@ export default function App() {
     const now = new Date();
     const fecha = now.toLocaleDateString("es-MX").replace(/\//g, "-");
     const hora  = now.toTimeString().slice(0, 8).replace(/:/g, "-");
-    const url = URL.createObjectURL(new Blob([buildCSV(rows)], { type: "text/csv;charset=utf-8;" }));
-    Object.assign(document.createElement("a"), { href: url, download: `IDEAScan_${fecha}_${hora}.csv` }).click();
+    const xlsxBytes = buildXLSX(rows, "array");
+    const url = URL.createObjectURL(new Blob([xlsxBytes], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }));
+    Object.assign(document.createElement("a"), { href: url, download: `IDEAScan_${fecha}_${hora}.xlsx` }).click();
     URL.revokeObjectURL(url);
   };
 
@@ -173,7 +174,7 @@ export default function App() {
         `${"─".repeat(40)}\n\n` +
         partes + "\n\n" +
         `${"─".repeat(40)}\n` +
-        `Adjuntos: IDEAScan_${fecha.replace(/\//g,"-")}_${hora}.csv + ${resized.length} imagen(es)\n` +
+        `Adjuntos: IDEAScan_${fecha.replace(/\//g,"-")}_${hora}.xlsx + ${resized.length} imagen(es)\n` +
         `Generado por IDEAScan · Group CCA`;
 
       const resp = await fetch("/api/sendmail", {
@@ -183,8 +184,8 @@ export default function App() {
           to: emailTo,
           subject: "IDEAScan — Inspección " + fecha,
           text,
-          csvData: buildCSV(rows),
-          csvFilename: `IDEAScan_${fecha.replace(/\//g, "-")}_${hora}.csv`,
+          xlsxData: buildXLSX(rows, "base64"),
+          xlsxFilename: `IDEAScan_${fecha.replace(/\//g, "-")}_${hora}.xlsx`,
           images: resized,
         }),
       });
