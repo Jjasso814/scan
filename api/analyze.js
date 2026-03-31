@@ -42,7 +42,7 @@ export default async function handler(req, res) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
     if (!apiKey) {
           return res.status(500).json({
-                  error: "ANTHROPIC_API_KEY no configurada en Vercel → Settings → Environment Variables",
+                  error: "ANTHROPIC_API_KEY no configurada → Netlify: Site configuration → Environment variables",
           });
     }
 
@@ -88,7 +88,7 @@ export default async function handler(req, res) {
           const statusCode = anthropicResponse.status;
               let userMessage = `Error de Anthropic (${statusCode})`;
 
-          if (statusCode === 401) userMessage = "API Key inválida o expirada. Revisa ANTHROPIC_API_KEY en Vercel.";
+          if (statusCode === 401) userMessage = "API Key inválida o expirada. Revisa ANTHROPIC_API_KEY en Netlify.";
               else if (statusCode === 400) userMessage = "Solicitud inválida a Anthropic: " + (errBody?.error?.message || "formato incorrecto");
               else if (statusCode === 429) userMessage = "Límite de velocidad de Anthropic alcanzado. Espera unos segundos y reintenta.";
               else if (statusCode === 529) userMessage = "Anthropic está sobrecargado. Reintenta en un momento.";
@@ -116,7 +116,7 @@ export default async function handler(req, res) {
       // Distinguir errores de red vs errores de código
       if (error.name === "TypeError" && error.message.includes("fetch")) {
               return res.status(503).json({
-                        error: "No se pudo conectar con la API de Anthropic. Verifica la conectividad de Vercel.",
+                        error: "No se pudo conectar con la API de Anthropic.",
               });
       }
 

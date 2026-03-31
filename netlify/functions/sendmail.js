@@ -1,25 +1,43 @@
-// api/sendmail.js — Envío de correo con CSV e imágenes adjuntas via Gmail SMTP
+// netlify/functions/sendmail.js — Envío de correo con XLSX e imágenes adjuntas via Gmail SMTP
 import nodemailer from "nodemailer";
 
-const MAX_BODY_BYTES = 6_000_000; // 6 MB — Netlify permite hasta 6 MB por request
+const MAX_BODY_BYTES = 6_000_000; // 6 MB — Netlify permite hasta 6 MB por request (vs 4.5 MB en Vercel)
 
-export default async function handler(req, res) {
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-  if (req.method === "OPTIONS") return res.status(200).end();
-  if (req.method !== "POST") return res.status(405).json({ error: "Method Not Allowed" });
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type",
+};
+
+export const handler = async (event) => {
+  if (event.httpMethod === "OPTIONS") {
+    return { statusCode: 200, headers: CORS_HEADERS, body: "" };
+  }
+  if (event.httpMethod !== "POST") {
+    return { statusCode: 405, headers: CORS_HEADERS, body: JSON.stringify({ error: "Method Not Allowed" }) };
+  }
 
   const gmailUser = process.env.GMAIL_USER;
   const gmailPass = process.env.GMAIL_APP_PASSWORD;
   if (!gmailUser || !gmailPass) {
-    return res.status(500).json({
-      error: "GMAIL_USER o GMAIL_APP_PASSWORD no configurados → Netlify: Site configuration → Environment variables",
-    });
+    return {
+      statusCode: 500,
+      headers: CORS_HEADERS,
+      body: JSON.stringify({ error: "GMAIL_USER o GMAIL_APP_PASSWORD no configurados en Netlify → Site configuration → Environment variables" }),
+    };
   }
 
-  const { to, subject, text, xlsxData, xlsxFilename, images } = req.body || {};
-  if (!xlsxData) return res.status(400).json({ error: "xlsxData requerido" });
+  let body;
+  try {
+    body = JSON.parse(event.body || "{}");
+  } catch {
+    return { statusCode: 400, headers: CORS_HEADERS, body: JSON.stringify({ error: "Body no es JSON válido" }) };
+  }
+
+  const { to, subject, text, xlsxData, xlsxFilename, images } = body;
+  if (!xlsxData) {
+    return { statusCode: 400, headers: CORS_HEADERS, body: JSON.stringify({ error: "xlsxData requerido" }) };
+  }
 
   // Adjuntar XLSX
   const attachments = [{
@@ -32,9 +50,7 @@ export default async function handler(req, res) {
   let bytesUsados = Buffer.from(xlsxData, "base64").length;
   let imagenesAdjuntadas = 0;
   if (images && images.length > 0) {
-    // Construir buffers con índice original para reordenar después
     const imgBuffers = images.map((b64, i) => ({ i, buf: Buffer.from(b64, "base64") }));
-    // Ordenar por tamaño ascendente: si hay presupuesto ajustado, caben más imágenes pequeñas
     imgBuffers.sort((a, b) => a.buf.length - b.buf.length);
     const incluidas = [];
     for (const item of imgBuffers) {
@@ -43,7 +59,6 @@ export default async function handler(req, res) {
         bytesUsados += item.buf.length;
       }
     }
-    // Reordenar por índice original para que los adjuntos lleguen en orden de captura
     incluidas.sort((a, b) => a.i - b.i);
     for (const { i, buf } of incluidas) {
       attachments.push({
@@ -72,9 +87,13 @@ export default async function handler(req, res) {
       text: text + notaImagenes,
       attachments,
     });
-    return res.status(200).json({ success: true, imagenesAdjuntadas, imagenesOmitidas: (images?.length || 0) - imagenesAdjuntadas });
+    return {
+      statusCode: 200,
+      headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+      body: JSON.stringify({ success: true, imagenesAdjuntadas, imagenesOmitidas: (images?.length || 0) - imagenesAdjuntadas }),
+    };
   } catch (err) {
     console.error("sendmail error:", err);
-    return res.status(500).json({ error: err.message });
+    return { statusCode: 500, headers: CORS_HEADERS, body: JSON.stringify({ error: err.message }) };
   }
-}
+};
