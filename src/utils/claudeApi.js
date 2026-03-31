@@ -64,27 +64,20 @@ export const toUrl = (f) =>
   });
 
 /**
- * Prepara una imagen para enviar a la API de Claude:
- * - Si ya cabe (≤2048px), envía los bytes originales sin re-codificar (evita doble compresión)
- * - Si es más grande, reduce a 2048px con calidad 92% JPEG
- * - Fallback a base64 original si el canvas falla
+ * Prepara una imagen para enviar a la API de Claude.
+ * @param {File} file
+ * @param {number} maxPx  - Dimensión máxima (calculada dinámicamente en callClaude según cuántas imágenes hay)
+ * @param {number} quality - Calidad JPEG (0-1)
  */
-async function prepareForApi(file) {
-  const MAX_PX = 2048;
-  const QUALITY = 0.92;
-
-  const result = await new Promise((resolve) => {
+async function prepareForApi(file, maxPx, quality) {
+  const canvasB64 = await new Promise((resolve) => {
     const img = new Image();
     const url = URL.createObjectURL(file);
     img.onload = () => {
       URL.revokeObjectURL(url);
       const w = img.naturalWidth, h = img.naturalHeight;
       if (!w || !h) { resolve(null); return; }
-
-      // Si la imagen ya cabe en el límite, no re-codificar (evita artefactos por doble compresión)
-      if (w <= MAX_PX && h <= MAX_PX) { resolve("SKIP"); return; }
-
-      const scale  = Math.min(MAX_PX / w, MAX_PX / h, 1);
+      const scale  = Math.min(maxPx / w, maxPx / h, 1);
       const canvas = document.createElement("canvas");
       canvas.width  = Math.round(w * scale);
       canvas.height = Math.round(h * scale);
@@ -92,43 +85,30 @@ async function prepareForApi(file) {
       ctx.fillStyle = "#FFFFFF";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-      const b64 = canvas.toDataURL("image/jpeg", QUALITY).split(",")[1];
+      const b64 = canvas.toDataURL("image/jpeg", quality).split(",")[1];
       resolve(b64 && b64.length > 1000 ? b64 : null);
     };
     img.onerror = () => { URL.revokeObjectURL(url); resolve(null); };
     img.src = url;
   });
-
-  // Imagen ya cabe — enviar bytes originales sin re-comprimir
-  if (result === "SKIP") {
-    if (file.size <= 8_000_000) return { b64: await toB64(file), mediaType: file.type || "image/jpeg" };
-    // Dimensiones OK pero archivo muy grande (HEIC/RAW) — comprimir igual
-    // Forzar canvas ignorando el skip
-    const canvasB64 = await new Promise((resolve) => {
-      const img = new Image();
-      const url = URL.createObjectURL(file);
-      img.onload = () => {
-        URL.revokeObjectURL(url);
-        const w = img.naturalWidth, h = img.naturalHeight;
-        const canvas = document.createElement("canvas");
-        canvas.width = w; canvas.height = h;
-        const ctx = canvas.getContext("2d");
-        ctx.fillStyle = "#FFFFFF";
-        ctx.fillRect(0, 0, w, h);
-        ctx.drawImage(img, 0, 0, w, h);
-        const b64 = canvas.toDataURL("image/jpeg", QUALITY).split(",")[1];
-        resolve(b64 && b64.length > 1000 ? b64 : null);
-      };
-      img.onerror = () => { URL.revokeObjectURL(url); resolve(null); };
-      img.src = url;
-    });
-    if (canvasB64) return { b64: canvasB64, mediaType: "image/jpeg" };
-  }
-
-  if (result) return { b64: result, mediaType: "image/jpeg" };
-  // Fallback: bytes originales si el archivo es pequeño
-  if (file.size <= 8_000_000) return { b64: await toB64(file), mediaType: file.type || "image/jpeg" };
+  if (canvasB64) return { b64: canvasB64, mediaType: "image/jpeg" };
+  // Fallback: bytes originales si el archivo ya es pequeño
+  if (file.size <= 2_000_000) return { b64: await toB64(file), mediaType: file.type || "image/jpeg" };
   return null;
+}
+
+/**
+ * Calcula la resolución máxima por imagen para mantenerse dentro del límite de Vercel (4.5 MB request body).
+ * Así, con pocas imágenes se usa alta resolución; con muchas se reduce proporcionalmente.
+ * Fórmula: budget_por_imagen → píxeles en lado más largo.
+ * Ejemplo: 1 img → 2048px, 4 imgs → ~1300px, 9 imgs → ~870px, 13 imgs → ~720px
+ */
+function calcApiMaxPx(imageCount) {
+  const BUDGET = 3_500_000;          // 3.5 MB para los datos de imagen (deja 1 MB para JSON, headers)
+  const BYTES_PER_IMG = Math.floor(BUDGET / imageCount);
+  // Estimación empírica: JPEG 85% produce ~0.35 bytes/pixel para fotos de documentos
+  const px = Math.round(Math.sqrt(BYTES_PER_IMG / 0.35));
+  return Math.max(640, Math.min(2048, px));  // entre 640 y 2048
 }
 
 /** Quita el prefijo "⚠️ " al inicio de un valor */
@@ -218,9 +198,11 @@ function normalizeOrigen(v) {
  * Requiere que el usuario haya guardado su contraseña en sessionStorage["app_pwd"].
  */
 export async function callClaude(system, images, text) {
+  // Resolución dinámica: máxima calidad posible sin rebasar el límite de 4.5 MB de Vercel
+  const maxPx = calcApiMaxPx(images.length);
   const imgs = (await Promise.all(
     images.map(async (f) => {
-      const prepared = await prepareForApi(f);
+      const prepared = await prepareForApi(f, maxPx, 0.88);
       if (!prepared) return null; // imagen inválida o demasiado grande
       return { type: "image", source: { type: "base64", media_type: prepared.mediaType, data: prepared.b64 } };
     })
