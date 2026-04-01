@@ -6,6 +6,12 @@
 [functions]
   node_bundler = "esbuild"
 
+[functions."analyze"]
+  timeout = 26
+
+[functions."sendmail"]
+  timeout = 26
+
 # Redirige /api/* a las funciones de Netlify (mantiene las mismas URLs)
 [[redirects]]
   from = "/api/analyze"

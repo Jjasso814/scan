@@ -29,7 +29,10 @@ export const handler = async (event) => {
 
   let body;
   try {
-    body = JSON.parse(event.body || "{}");
+    const rawBody = event.isBase64Encoded
+      ? Buffer.from(event.body, "base64").toString("utf8")
+      : (event.body || "{}");
+    body = JSON.parse(rawBody);
   } catch {
     return { statusCode: 400, headers: CORS_HEADERS, body: JSON.stringify({ error: "Body no es JSON válido" }) };
   }
