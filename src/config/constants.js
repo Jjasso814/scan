@@ -59,9 +59,6 @@ export function xlsxRowValues(r) {
 // Columnas exclusivas para tipo maquinaria
 export const MAQ_ONLY = ["marca", "modelo", "serie"];
 
-// Columnas exclusivas para tipo maquinaria
-export const MAQ_ONLY = ["marca", "modelo", "serie"];
-
 export const MODEL       = "claude-sonnet-4-5";
 export const LOGO        = "/logo.png";
 export const FIXED_EMAIL = import.meta.env.VITE_FIXED_EMAIL || "juan.jasso@groupcca.com";
