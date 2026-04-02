@@ -295,8 +295,26 @@ export function buildRows(ext, tipo) {
       marca:  esMaq ? stripWarn(p.marca)  : null,
       modelo: esMaq ? stripWarn(p.modelo) : null,
       serie:  esMaq ? stripWarn(p.serie)  : null,
+      // ── Campos de enriquecimiento (PRD) ───────────────────────────────────────
+      raw_description:    p.raw_description || null,
+      description_source: (p.descripcion || p.descripcion_ingles) ? "document" : "empty",
+      confidence_score:   1.0,   // se recalcula abajo con los ⚠️ detectados
+      is_new_part_number: true,  // true hasta que se conecte catálogo histórico
       _warnings: [], _tipo: tipo,
     };
+  });
+
+  // Recalcular confidence_score por fila según campos con ⚠️
+  rows = rows.map((r) => {
+    const warnCount = Object.values(r).filter(
+      (v) => typeof v === "string" && v.startsWith("⚠️")
+    ).length;
+    const baseScore = ext.calidad_imagenes === "mala" ? 0.3
+                    : ext.calidad_imagenes === "aceptable" ? 0.7
+                    : 1.0;
+    const penaltyPerWarn = 0.1;
+    const score = Math.max(0.1, baseScore - warnCount * penaltyPerWarn);
+    return { ...r, confidence_score: Math.round(score * 100) / 100 };
   });
 
   // Materia prima: si 1 parte y múltiples bultos, expandir por bulto

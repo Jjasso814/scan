@@ -35,7 +35,7 @@ ANTES de llenar el JSON, lee esto:
 (Packing Lists, etiquetas de transportista y etiquetas de producto) y devuelve SOLO este JSON sin texto extra ni markdown:
 {"vendor":null,"po":null,"referencia":null,"importador":null,"origen":null,"carrier":null,"tracking":null,\
 "bultos_total":1,"peso_lbs":null,"peso_kgs":null,"tipo_bulto":null,"calidad_imagenes":"buena",\
-"partes":[{"no_parte":null,"descripcion":null,"descripcion_ingles":null,\
+"partes":[{"no_parte":null,"raw_description":null,"descripcion":null,"descripcion_ingles":null,\
 "cantidad":null,"um":null,"valor":null,"fraccion":null,"marca":null,"modelo":null,"serie":null}]}
 REGLAS:
 1) Solo JSON, sin markdown.
@@ -89,7 +89,11 @@ ${reglaCantidad}
 16) no_parte con fracciones — lee con cuidado:
     5/8 ≠ 3/8, 6 ≠ 9, 3 ≠ 8, M ≠ W, 0 ≠ O, 1 ≠ I.
     Si el no_parte aparece en varias etiquetas, usa el valor que más se repite.
-17) descripcion: describe el artículo sin repetir el no_parte completo.
+17) raw_description: copia el texto EXACTO del nombre del producto tal como aparece en el documento,
+    sin traducir, sin modificar, sin quitar el número de piezas al final.
+    Ej: "PISTON O 5CC WH WIPER 100" → raw_description="PISTON O 5CC WH WIPER 100"
+    Si no hay texto de producto visible → null.
+    descripcion: describe el artículo sin repetir el no_parte completo.
     Ej: "1 1/2 40.010 SS Circle" → "Círculo de acero inoxidable 1½ pulgada malla 40.010"
 18) calidad_imagenes: evalúa la nitidez general de TODAS las imágenes recibidas.
     "buena"     = todo el texto es legible, sin dudas importantes.
