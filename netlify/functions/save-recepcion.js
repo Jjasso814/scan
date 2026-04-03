@@ -1,26 +1,15 @@
 // netlify/functions/save-recepcion.js
-// Guarda una recepción en Supabase usando la service role key (server-side).
-// Evita exponer claves y restricciones de schema en el cliente.
+// Llama a la función RPC public.ideascan_save_recepcion en Supabase.
+// Usa la service role key (server-side). No requiere exponer el schema ideascan.
 
-const SUPABASE_URL  = process.env.SUPABASE_URL;
-const SERVICE_KEY   = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SERVICE_KEY  = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin":  "*",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type",
 };
-
-function sbHeaders() {
-  return {
-    apikey:            SERVICE_KEY,
-    Authorization:     `Bearer ${SERVICE_KEY}`,
-    "Content-Type":    "application/json",
-    "Content-Profile": "ideascan",
-    "Accept-Profile":  "ideascan",
-    Prefer:            "return=representation",
-  };
-}
 
 export const handler = async (event) => {
   if (event.httpMethod === "OPTIONS") {
@@ -30,7 +19,7 @@ export const handler = async (event) => {
     return { statusCode: 405, headers: CORS_HEADERS, body: JSON.stringify({ error: "Method Not Allowed" }) };
   }
   if (!SUPABASE_URL || !SERVICE_KEY) {
-    return { statusCode: 500, headers: CORS_HEADERS, body: JSON.stringify({ error: "Supabase no configurado en el servidor. Agrega SUPABASE_URL y SUPABASE_SERVICE_ROLE_KEY en Netlify." }) };
+    return { statusCode: 500, headers: CORS_HEADERS, body: JSON.stringify({ error: "SUPABASE_URL o SUPABASE_SERVICE_ROLE_KEY no configurados en Netlify." }) };
   }
 
   let body;
@@ -44,72 +33,22 @@ export const handler = async (event) => {
   const { folio, tipo, rows } = body;
 
   try {
-    // 1 — Insertar encabezado de recepción
-    const primera   = rows[0] || {};
-    const totalBultos = rows.reduce((s, r) => s + (Number(r.bultos) || 0), 0);
-
-    const recResp = await fetch(`${SUPABASE_URL}/rest/v1/recepciones`, {
+    // Llama a public.ideascan_save_recepcion(p_folio, p_tipo, p_rows)
+    // La función SQL inserta en ideascan.recepciones y ideascan.renglones_recepcion
+    const resp = await fetch(`${SUPABASE_URL}/rest/v1/rpc/ideascan_save_recepcion`, {
       method: "POST",
-      headers: sbHeaders(),
-      body: JSON.stringify({
-        folio,
-        tipo,
-        estado:          "confirmado",
-        vendor:          primera.proveedor     || null,
-        carrier:         primera.transportista || null,
-        tracking_number: primera.tracking      || null,
-        total_bultos:    totalBultos,
-        tipo_bulto:      primera.tipo_bulto    || null,
-        observaciones:   primera.observaciones || null,
-        operador_nombre: "IDEAScan",
-      }),
+      headers: {
+        apikey:        SERVICE_KEY,
+        Authorization: `Bearer ${SERVICE_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ p_folio: folio, p_tipo: tipo, p_rows: rows }),
     });
 
-    if (!recResp.ok) {
-      const err = await recResp.json().catch(() => ({}));
-      throw new Error("Error al guardar recepción: " + (err.message || err.hint || recResp.status));
-    }
+    const data = await resp.json().catch(() => ({}));
 
-    const [recepcion] = await recResp.json();
-
-    // 2 — Insertar renglones
-    const renglones = rows.map((r, i) => ({
-      recepcion_id:       recepcion.id,
-      folio,
-      bulto_num:          r._bulto || (i + 1),
-      po:                 r.po               || null,
-      pn:                 r.no_parte         || null,
-      descripcion:        r.descripcion      || null,
-      descripcion_en:     r.descripcion_ingles || null,
-      origen:             r.origen           || null,
-      cantidad:           Number(r.cantidad) || null,
-      um:                 r.um               || null,
-      weight_lbs:         Number(r.peso_lbs) || null,
-      weight_kgs:         Number(r.peso_kgs) || null,
-      tracking_number:    r.tracking         || null,
-      vendor:             r.proveedor        || null,
-      referencia:         r.referencia       || null,
-      serie:              r.serie            || null,
-      marca:              r.marca            || null,
-      modelo:             r.modelo           || null,
-      valor:              Number(r.valor)    || null,
-      fraccion_aduanal:   r.fraccion         || null,
-      observacion_bulto:  r.observaciones    || null,
-      pn_normalizado:     r.pn_normalizado   || null,
-      description_source: r.description_source || null,
-      confidence_score:   r.confidence_score   ?? null,
-      is_new_part_number: r.is_new_part_number ?? true,
-    }));
-
-    const rengResp = await fetch(`${SUPABASE_URL}/rest/v1/renglones_recepcion`, {
-      method: "POST",
-      headers: sbHeaders(),
-      body: JSON.stringify(renglones),
-    });
-
-    if (!rengResp.ok) {
-      const err = await rengResp.json().catch(() => ({}));
-      throw new Error("Error al guardar líneas: " + (err.message || err.hint || rengResp.status));
+    if (!resp.ok) {
+      throw new Error(data.message || data.hint || data.error || "Error " + resp.status);
     }
 
     return { statusCode: 200, headers: CORS_HEADERS, body: JSON.stringify({ folio }) };
