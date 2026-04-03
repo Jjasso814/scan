@@ -136,7 +136,8 @@ export default function App() {
 
     setLoading(true); setLoadMsg("Guardando en sistema...");
     let folio = null;
-    try { folio = await saveRecepcion(rows, tipo); } catch (_) { /* sin Supabase configurado, continuar */ }
+    let saveError = null;
+    try { folio = await saveRecepcion(rows, tipo); } catch (e) { saveError = e.message; }
 
     setLoadMsg("Comprimiendo imágenes...");
     try {
@@ -201,7 +202,9 @@ export default function App() {
         const err = await resp.json().catch(() => ({}));
         throw new Error(err.error || "Error del servidor " + resp.status);
       }
-      setEmailMsg("✅ Correo enviado a " + emailTo + (folio ? " · Folio: " + folio : ""));
+      const folioTxt  = folio     ? " · Folio: " + folio : "";
+      const errorTxt  = saveError ? " ⚠️ Supabase: " + saveError : "";
+      setEmailMsg("✅ Correo enviado a " + emailTo + folioTxt + errorTxt);
     } catch (e) {
       setEmailMsg("❌ Error al enviar: " + e.message);
     } finally {
