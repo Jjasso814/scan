@@ -23,6 +23,11 @@
   to = "/.netlify/functions/sendmail"
   status = 200
 
+[[redirects]]
+  from = "/api/save-recepcion"
+  to = "/.netlify/functions/save-recepcion"
+  status = 200
+
 # SPA fallback: cualquier ruta desconocida sirve index.html
 [[redirects]]
   from = "/*"
