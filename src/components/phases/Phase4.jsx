@@ -34,15 +34,30 @@ function ReconciliationCard({ reconciliation }) {
 
 const LS_KEY = "ideascan_email_to";
 
-export default function Phase4({ rows, setRows, tipo, reconciliation, emailMsg, onDownload, onEmail, onReset, defaultEmail }) {
+export default function Phase4({ rows, setRows, tipo, reconciliation, emailMsg, onDownload, onEmail, onSave, onReset, defaultEmail }) {
   const [emailTo, setEmailTo] = useState(
     () => localStorage.getItem(LS_KEY) || defaultEmail || ""
   );
+  const [saveMsg, setSaveMsg] = useState("");
+  const [saving, setSaving]   = useState(false);
 
   const handleEmailChange = (val) => {
     setEmailTo(val);
     localStorage.setItem(LS_KEY, val);
   };
+
+  const handleSave = async () => {
+    setSaving(true); setSaveMsg("");
+    try {
+      const folio = await onSave();
+      setSaveMsg("✅ Guardado en sistema — Folio: " + folio);
+    } catch (e) {
+      setSaveMsg("❌ " + e.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const hasWarnings = rows.some((r) => r._warnings?.length > 0);
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
@@ -70,7 +85,16 @@ export default function Phase4({ rows, setRows, tipo, reconciliation, emailMsg, 
       </Card>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        <PrimaryBtn onClick={onDownload}>⬇️ Descargar CSV</PrimaryBtn>
+        <PrimaryBtn onClick={onDownload}>⬇️ Descargar XLSX</PrimaryBtn>
+        <button
+          onClick={handleSave}
+          disabled={saving || !!saveMsg.startsWith("✅")}
+          style={{ background: saveMsg.startsWith("✅") ? C.green : C.navy, color: C.white, border: "none", borderRadius: 10, padding: "13px 22px", fontSize: 14, fontWeight: 700, cursor: saving ? "default" : "pointer", width: "100%", opacity: saving ? 0.7 : 1 }}>
+          {saving ? "Guardando..." : saveMsg.startsWith("✅") ? saveMsg : "💾 Guardar en sistema"}
+        </button>
+        {saveMsg && !saveMsg.startsWith("✅") && (
+          <p style={{ margin: 0, fontSize: 12, color: C.red }}>{saveMsg}</p>
+        )}
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           <label style={{ fontSize: 12, color: C.muted, fontWeight: 600 }}>
             Destinatario(s) — separa varios correos con coma

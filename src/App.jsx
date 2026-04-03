@@ -2,6 +2,8 @@ import { useState, useCallback } from "react";
 import { C, FIXED_EMAIL } from "./config/constants"; // FIXED_EMAIL se pasa como defaultEmail a Phase4
 import { buildPhase2Prompt, buildPhase3Prompt } from "./config/prompts";
 import { callClaude, buildRows, buildXLSX, toUrl, resizeForEmail } from "./utils/claudeApi";
+import { enrichFromCatalog } from "./utils/catalogLookup";
+import { saveRecepcion } from "./utils/supabaseSave";
 import Header      from "./components/Header";
 import StepBar     from "./components/StepBar";
 import LoginScreen from "./components/LoginScreen";
@@ -32,11 +34,11 @@ export default function App() {
 
   if (!authed) return <LoginScreen onAuth={() => setAuthed(true)} />;
 
-  const addFiles = useCallback(async (files, setI, setP) => {
+  const addFiles = useCallback(async (files, setI, setP, evidenceType = "document") => {
     setI((p) => [...p, ...files]);
     const urls = await Promise.all(files.map(toUrl));
     setP((p) => [...p, ...urls]);
-    setAllImgs((p) => [...p, ...files]);
+    setAllImgs((p) => [...p, ...files.map((file) => ({ file, evidence_type: evidenceType }))]);
   }, []);
 
   const removeFile = (i, setI, setP) => {
@@ -69,7 +71,8 @@ export default function App() {
     try {
       const ext  = await callClaude(buildPhase2Prompt(tipo), p2imgs, "Extrae toda la información y devuelve el JSON.");
       const built = buildRows(ext, tipo);
-      setExtracted(ext); setRows(built);
+      const enriched = await enrichFromCatalog(built);
+      setExtracted(ext); setRows(enriched);
 
       // Detectar calidad de imágenes: calidad "mala" o más de 2 campos con ⚠️
       const calidad = ext.calidad_imagenes || "buena";
@@ -145,7 +148,7 @@ export default function App() {
       else if (imgCount <= 10) { emailMaxPx = 1200; emailQuality = 0.75; }
       else                     { emailMaxPx = 1024; emailQuality = 0.70; }
 
-      const resized = (await Promise.all(allImgs.map((f) => resizeForEmail(f, emailMaxPx, emailQuality)))).filter(Boolean);
+      const resized = (await Promise.all(allImgs.map(({ file }) => resizeForEmail(file, emailMaxPx, emailQuality)))).filter(Boolean);
 
       setLoadMsg("Enviando correo con adjuntos...");
 
@@ -223,7 +226,7 @@ export default function App() {
         {phase === 2 && !loading && (
           <Phase2
             p2imgs={p2imgs} p2prevs={p2prevs}
-            onAddFiles={(f) => addFiles(f, setP2imgs, setP2prevs)}
+            onAddFiles={(f) => addFiles(f, setP2imgs, setP2prevs, "document")}
             onRemoveFile={(i) => removeFile(i, setP2imgs, setP2prevs)}
             onAnalyze={runPhase2}
             onSkip={() => { setRows([]); setPhase(4); }}
@@ -238,7 +241,7 @@ export default function App() {
             rows={rows} setRows={setRows} tipo={tipo}
             bultoIdx={bultoIdx} extracted={extracted}
             p3imgs={p3imgs} p3prevs={p3prevs}
-            onAddFiles={(f) => addFiles(f, setP3imgs, setP3prevs)}
+            onAddFiles={(f) => addFiles(f, setP3imgs, setP3prevs, "bulto")}
             onRemoveFile={(i) => removeFile(i, setP3imgs, setP3prevs)}
             onVerify={runPhase3}
             onSkip={() => setPhase(4)}
@@ -249,7 +252,9 @@ export default function App() {
           <Phase4
             rows={rows} setRows={setRows} tipo={tipo}
             reconciliation={reconciliation} emailMsg={emailMsg}
-            onDownload={handleDownload} onEmail={handleEmail} onReset={reset}
+            onDownload={handleDownload} onEmail={handleEmail}
+            onSave={() => saveRecepcion(rows, tipo)}
+            onReset={reset}
             defaultEmail={FIXED_EMAIL}
           />
         )}

@@ -169,6 +169,12 @@ const US_STATES = new Set([
   "VA","WA","WV","WI","WY","DC",
 ]);
 
+/** Normaliza un número de parte: sin ⚠️, sin espacios extra, mayúsculas */
+function normalizePn(v) {
+  if (!v) return null;
+  return String(v).replace(/^⚠️\s*/, "").trim().toUpperCase().replace(/\s+/g, " ");
+}
+
 /** Normaliza el origen al código ISO-2 del país */
 function normalizeOrigen(v) {
   if (!v) return v;
@@ -296,6 +302,8 @@ export function buildRows(ext, tipo) {
       modelo: esMaq ? stripWarn(p.modelo) : null,
       serie:  esMaq ? stripWarn(p.serie)  : null,
       // ── Campos de enriquecimiento (PRD) ───────────────────────────────────────
+      pn_normalizado:     normalizePn(p.no_parte),
+      series_unified:     stripWarn(p.serie) || null,
       raw_description:    p.raw_description || null,
       description_source: (p.descripcion || p.descripcion_ingles) ? "document" : "empty",
       confidence_score:   1.0,   // se recalcula abajo con los ⚠️ detectados
