@@ -132,9 +132,13 @@ export default function App() {
   };
 
   const handleEmail = async (emailTo) => {
-    handleDownload(); // descarga el CSV automáticamente
+    handleDownload(); // descarga el XLSX automáticamente
 
-    setLoading(true); setLoadMsg("Comprimiendo imágenes...");
+    setLoading(true); setLoadMsg("Guardando en sistema...");
+    let folio = null;
+    try { folio = await saveRecepcion(rows, tipo); } catch (_) { /* sin Supabase configurado, continuar */ }
+
+    setLoadMsg("Comprimiendo imágenes...");
     try {
       const now   = new Date();
       const fecha = now.toLocaleDateString("es-MX");
@@ -197,7 +201,7 @@ export default function App() {
         const err = await resp.json().catch(() => ({}));
         throw new Error(err.error || "Error del servidor " + resp.status);
       }
-      setEmailMsg("✅ CSV e imágenes enviados a " + emailTo);
+      setEmailMsg("✅ Correo enviado a " + emailTo + (folio ? " · Folio: " + folio : ""));
     } catch (e) {
       setEmailMsg("❌ Error al enviar: " + e.message);
     } finally {
@@ -253,7 +257,6 @@ export default function App() {
             rows={rows} setRows={setRows} tipo={tipo}
             reconciliation={reconciliation} emailMsg={emailMsg}
             onDownload={handleDownload} onEmail={handleEmail}
-            onSave={() => saveRecepcion(rows, tipo)}
             onReset={reset}
             defaultEmail={FIXED_EMAIL}
           />
